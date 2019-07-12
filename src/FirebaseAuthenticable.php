@@ -15,17 +15,35 @@ trait FirebaseAuthenticable
      * Get User by claim.
      *
      * @param array $claims
-     * @return User
+     * @return self
      */
-    public static function resolveByClaims($claims)
+    public function resolveByClaims(array $claims): object
     {
         $id = (string) $claims['sub'];
 
-        if ($user = self::find($id)) {
+        $attributes = $this->transformClaims($claims);
+
+        return $this->updateOrCreateUser($id, $attributes);
+    }
+
+    /**
+     * Update or create user.
+     *
+     * @param integer|string $id
+     * @param array $attributes
+     * @return self
+     */
+    public function updateOrCreateUser($id, array $attributes): object
+    {
+        if ($user = $this->find($id)) {
+            $user
+                ->fill($attributes)
+                ->save();
+
             return $user;
         }
 
-        $user = self::make()->fill(self::transformClaims($claims));
+        $user = $this->fill($attributes);
         $user->id = $id;
         $user->save();
 
@@ -38,10 +56,9 @@ trait FirebaseAuthenticable
      * @param array $claims
      * @return array
      */
-    public static function transformClaims($claims)
+    public function transformClaims(array $claims): array
     {
         $attributes = [
-            'id' => (string) $claims['sub'],
             'email' => (string) $claims['email'],
         ];
 
