@@ -15,6 +15,7 @@ trait FirebaseAuthenticable
      * Get User by claim.
      *
      * @param array $claims
+     *
      * @return self
      */
     public function resolveByClaims(array $claims): object
@@ -29,8 +30,9 @@ trait FirebaseAuthenticable
     /**
      * Update or create user.
      *
-     * @param integer|string $id
-     * @param array $attributes
+     * @param int|string $id
+     * @param array      $attributes
+     *
      * @return self
      */
     public function updateOrCreateUser($id, array $attributes): object
@@ -54,6 +56,7 @@ trait FirebaseAuthenticable
      * Transform claims to attributes.
      *
      * @param array $claims
+     *
      * @return array
      */
     public function transformClaims(array $claims): array
