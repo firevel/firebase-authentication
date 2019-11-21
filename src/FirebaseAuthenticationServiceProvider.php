@@ -37,5 +37,3 @@ class FirebaseAuthenticationServiceProvider extends ServiceProvider
         });
     }
 }
-
-
