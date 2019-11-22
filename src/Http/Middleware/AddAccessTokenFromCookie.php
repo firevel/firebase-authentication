@@ -9,8 +9,9 @@ class AddAccessTokenFromCookie
     /**
      * Store token from cookie in authorization header.
      *
-     * @param  \Illuminate\Http\Request  $request
-     * @param  \Closure  $next
+     * @param \Illuminate\Http\Request $request
+     * @param \Closure                 $next
+     *
      * @return mixed
      */
     public function handle($request, Closure $next)
