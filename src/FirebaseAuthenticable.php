@@ -39,8 +39,11 @@ trait FirebaseAuthenticable
     {
         if ($user = $this->find($id)) {
             $user
-                ->fill($attributes)
-                ->save();
+                ->fill($attributes);
+
+            if ($user->isDirty()) {
+                $user->save();
+            }
 
             return $user;
         }
