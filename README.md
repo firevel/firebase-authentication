@@ -13,16 +13,22 @@ The driver contains a firebase guard that authenticates user by Firebase Authent
 composer require firevel/firebase-authentication
 ```
 
-2) Update config/auth.php with:
+2) Update config/auth.php.
+
 ```
 'guards' => [
-    ....
-    'api' => [
+    'web' => [
         'driver' => 'firebase',
+        'provider' => 'users',
+    ],
+
+    'api' => [
+        'driver' => 'token',
         'provider' => 'users',
     ],
 ],
 ```
+
 3) Update your User model with `Firevel\FirebaseAuthentication\FirebaseAuthenticable` trait `$incrementing = false` and fillables.
 
 Eloquent example:
@@ -37,7 +43,7 @@ use Illuminate\Foundation\Auth\User as Authenticatable;
 
 class User extends Authenticatable
 {
-    use Notifiable;
+    use Notifiable, FirebaseAuthenticable;
 
     /**
      * Indicates if the IDs are auto-incrementing.
@@ -99,6 +105,23 @@ $table->string('name');
 $table->string('email')->unique();
 $table->string('picture');
 $table->timestamps();
+```
+
+## Web guard
+
+In order to use firebase authentication in web routes you must attach bearer token to each http request.
+
+You can also store bearer token in `bearer_token` cookie variable and add to your `Kernel.php`:
+```
+    protected $middlewareGroups = [
+        'web' => [
+            ...
+            \Firevel\FirebaseAuthentication\Http\Middleware\AddAccessTokenFromCookie::class,
+            ...
+        ],
+
+        ...
+    ];
 ```
 
 ## Usage
