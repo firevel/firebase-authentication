@@ -124,6 +124,15 @@ You can also store bearer token in `bearer_token` cookie variable and add to you
     ];
 ```
 
+If you are using `EncryptCookies` middleware you must set:
+```
+    protected $except = [
+        ...
+        'bearer_token',
+        ...
+    ];
+```
+
 ## Usage
 
 Attach to each API call regular bearer token provided by Firebase Authentication.
