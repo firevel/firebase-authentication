@@ -41,6 +41,10 @@ class FirebaseGuard
             return app(config('auth.providers.users.model'))
                 ->resolveByClaims($token->getClaims());
         } catch (\Exception $e) {
+            if (config('app.debug')) {
+                throw $e;
+            }
+
             return;
         }
     }
