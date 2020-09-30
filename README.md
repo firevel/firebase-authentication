@@ -8,13 +8,12 @@ The driver contains a firebase guard that authenticates user by Firebase Authent
 
 ## Installation
 
-### 1. Install the package using composer:
+### Install the package using composer.
 ```
 composer require firevel/firebase-authentication
 ```
 
-### 2. Update config/auth.php.
-
+### Update `config/auth.php`.
 ```
 'guards' => [
     'web' => [
@@ -28,10 +27,12 @@ composer require firevel/firebase-authentication
     ],
 ],
 ```
+### Set firebase project name.
+Add `GOOGLE_CLOUD_PROJECT` to your env or `firebase.project_id` config variable.
 
-### 3. Update your User model with `Firevel\FirebaseAuthentication\FirebaseAuthenticable` trait `$incrementing = false` and fillables.
+### Update your `User` model.
+Add `Firevel\FirebaseAuthentication\FirebaseAuthenticable` trait `$incrementing = false` and fillables.
 
-### 4. Set firebase project in `GOOGLE_CLOUD_PROJECT` env variable, or `firebase.project_id` config variable.
 
 Eloquent example:
 ```
@@ -100,7 +101,7 @@ class User extends Model implements Authenticatable
 
 ```
 
-4. If you are using Eloquent you need to create or update migration for users table manually.
+### If you are using Eloquent you need to create or update migration for users table manually.
 ```
 $table->string('id');
 $table->string('name');
