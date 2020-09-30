@@ -8,12 +8,12 @@ The driver contains a firebase guard that authenticates user by Firebase Authent
 
 ## Installation
 
-1) Install the package using composer:
+### 1. Install the package using composer:
 ```
 composer require firevel/firebase-authentication
 ```
 
-2) Update config/auth.php.
+### 2. Update config/auth.php.
 
 ```
 'guards' => [
@@ -23,13 +23,15 @@ composer require firevel/firebase-authentication
     ],
 
     'api' => [
-        'driver' => 'token',
+        'driver' => 'firebase',
         'provider' => 'users',
     ],
 ],
 ```
 
-3) Update your User model with `Firevel\FirebaseAuthentication\FirebaseAuthenticable` trait `$incrementing = false` and fillables.
+### 3. Update your User model with `Firevel\FirebaseAuthentication\FirebaseAuthenticable` trait `$incrementing = false` and fillables.
+
+### 4. Set firebase project in `GOOGLE_CLOUD_PROJECT` env variable, or `firebase.project_id` config variable.
 
 Eloquent example:
 ```
@@ -125,6 +127,7 @@ You can also store bearer token in `bearer_token` cookie variable and add to you
 ```
 
 If you are using `EncryptCookies` middleware you must set:
+
 ```
     protected $except = [
         ...
