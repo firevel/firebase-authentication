@@ -18,6 +18,7 @@
             ]
         }
     },
+    "minimum-stability": "dev",
     "authors": [
         {
             "name": "Michael Slowik",
