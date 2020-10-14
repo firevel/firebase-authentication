@@ -35,6 +35,10 @@ class FirebaseGuard
     {
         $token = $request->bearerToken();
 
+        if (empty($token)) {
+            return;
+        }
+
         try {
             $token = $this->verifier->verifyIdToken($token);
 
