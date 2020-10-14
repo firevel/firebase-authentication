@@ -31,9 +31,15 @@ class FirebaseAuthenticationServiceProvider extends ServiceProvider
     public function register()
     {
         $this->app->singleton(Verifier::class, function ($app) {
+            $project = config('firebase.project_id', env('GOOGLE_CLOUD_PROJECT'));
+
+            if (empty($project)) {
+                throw new \Exception('Missing GOOGLE_CLOUD_PROJECT env variable.');
+            }
+
             $keyStore = new HttpKeyStore(null, cache()->store());
 
-            return new Verifier(config('firebase.project_id', env('GOOGLE_CLOUD_PROJECT')), $keyStore);
+            return new Verifier($project, $keyStore);
         });
     }
 }
