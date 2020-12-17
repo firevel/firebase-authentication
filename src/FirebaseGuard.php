@@ -40,10 +40,11 @@ class FirebaseGuard
         }
 
         try {
-            $token = $this->verifier->verifyIdToken($token);
+            $firebaseToken = $this->verifier->verifyIdToken($token);
 
             return app(config('auth.providers.users.model'))
-                ->resolveByClaims($token->getClaims());
+                ->setFirebaseAuthenticationToken($token)
+                ->resolveByClaims($firebaseToken->getClaims());
         } catch (\Exception $e) {
             if (config('app.debug')) {
                 throw $e;
