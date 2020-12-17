@@ -12,6 +12,13 @@ trait FirebaseAuthenticable
     protected $claims;
 
     /**
+     * Firebase token.
+     *
+     * @var string|null
+     */
+    protected $firebaseAuthenticationToken;
+
+    /**
      * Get User by claim.
      *
      * @param array $claims
@@ -77,6 +84,30 @@ trait FirebaseAuthenticable
         }
 
         return $attributes;
+    }
+
+    /**
+     * Set firebase token.
+     *
+     * @param string $token
+     *
+     * @return self
+     */
+    public function setFirebaseAuthenticationToken($token)
+    {
+        $this->firebaseAuthenticationToken = $token;
+
+        return $this;
+    }
+
+    /**
+     * Get firebase token.
+     *
+     * @return string
+     */
+    public function getFirebaseAuthenticationToken()
+    {
+        return $this->firebaseAuthenticationToken;
     }
 
     /**
