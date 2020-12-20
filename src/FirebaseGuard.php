@@ -50,7 +50,6 @@ class FirebaseGuard
                 return;
             }
 
-
             if (config('app.debug')) {
                 throw $e;
             }
