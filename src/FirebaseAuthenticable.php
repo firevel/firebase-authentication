@@ -21,8 +21,7 @@ trait FirebaseAuthenticable
     /**
      * Get User by claim.
      *
-     * @param array $claims
-     *
+     * @param  array  $claims
      * @return self
      */
     public function resolveByClaims(array $claims): object
@@ -37,9 +36,8 @@ trait FirebaseAuthenticable
     /**
      * Update or create user.
      *
-     * @param int|string $id
-     * @param array      $attributes
-     *
+     * @param  int|string  $id
+     * @param  array  $attributes
      * @return self
      */
     public function updateOrCreateUser($id, array $attributes): object
@@ -65,8 +63,7 @@ trait FirebaseAuthenticable
     /**
      * Transform claims to attributes.
      *
-     * @param array $claims
-     *
+     * @param  array  $claims
      * @return array
      */
     public function transformClaims(array $claims): array
@@ -75,11 +72,11 @@ trait FirebaseAuthenticable
             'email' => (string) $claims['email'],
         ];
 
-        if (!empty($claims['name'])) {
+        if (! empty($claims['name'])) {
             $attributes['name'] = (string) $claims['name'];
         }
 
-        if (!empty($claims['picture'])) {
+        if (! empty($claims['picture'])) {
             $attributes['picture'] = (string) $claims['picture'];
         }
 
@@ -89,8 +86,7 @@ trait FirebaseAuthenticable
     /**
      * Set firebase token.
      *
-     * @param string $token
-     *
+     * @param  string  $token
      * @return self
      */
     public function setFirebaseAuthenticationToken($token)
@@ -153,8 +149,7 @@ trait FirebaseAuthenticable
     /**
      * Set the token value for the "remember me" session.
      *
-     * @param string $value
-     *
+     * @param  string  $value
      * @return void
      */
     public function setRememberToken($value)
