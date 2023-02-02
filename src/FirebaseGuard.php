@@ -43,7 +43,7 @@ class FirebaseGuard
             $firebaseToken = $this->verifier->verifyIdToken($token);
 
             return app(config('auth.providers.users.model'))
-                ->resolveByClaims($firebaseToken->getClaims())
+                ->resolveByClaims($firebaseToken->claims()->all())
                 ->setFirebaseAuthenticationToken($token);
         } catch (\Exception $e) {
             if ($e instanceof \Firebase\Auth\Token\Exception\ExpiredToken) {
