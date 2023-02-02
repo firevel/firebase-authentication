@@ -15,8 +15,7 @@ class FirebaseGuard
     /**
      * Constructor.
      *
-     * @param Verifier $verifier
-     *
+     * @param  Verifier  $verifier
      * @return void
      */
     public function __construct(Verifier $verifier)
@@ -27,8 +26,7 @@ class FirebaseGuard
     /**
      * Get User by request claims.
      *
-     * @param Request $request
-     *
+     * @param  Request  $request
      * @return mixed|null
      */
     public function user(Request $request)
