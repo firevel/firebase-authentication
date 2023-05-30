@@ -2,7 +2,6 @@
 
 namespace Firevel\FirebaseAuthentication;
 
-use Firevel\FirebaseAuthentication\FirebaseAuthenticable;
 use Illuminate\Foundation\Auth\User as Authenticatable;
 
 class FirebaseIdentity extends Authenticatable
@@ -35,14 +34,12 @@ class FirebaseIdentity extends Authenticatable
      */
     public function resolveByClaims(array $claims): object
     {
-
         $attributes = $this->transformClaims($claims);
         $attributes['id'] = (string) $claims['sub'];
 
         return $this->fill($attributes);
     }
 
-    
     /**
      * The attributes that aren't mass assignable.
      *
