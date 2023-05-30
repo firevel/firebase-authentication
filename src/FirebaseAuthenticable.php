@@ -68,9 +68,11 @@ trait FirebaseAuthenticable
      */
     public function transformClaims(array $claims): array
     {
-        $attributes = [
-            'email' => (string) $claims['email'],
-        ];
+        $attributes = [];
+
+        if (! empty($claims['email'])) {
+            $attributes['email'] = (string) $claims['email'];
+        }
 
         if (! empty($claims['name'])) {
             $attributes['name'] = (string) $claims['name'];
