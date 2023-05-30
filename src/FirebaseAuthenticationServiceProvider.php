@@ -3,9 +3,9 @@
 namespace Firevel\FirebaseAuthentication;
 
 use Auth;
+use Illuminate\Foundation\Support\Providers\AuthServiceProvider as ServiceProvider;
 use Kreait\Firebase\JWT\IdTokenVerifier;
 use Symfony\Component\Cache\Adapter\FilesystemAdapter;
-use Illuminate\Foundation\Support\Providers\AuthServiceProvider as ServiceProvider;
 
 class FirebaseAuthenticationServiceProvider extends ServiceProvider
 {
