@@ -2,7 +2,6 @@
 
 namespace Firevel\FirebaseAuthentication;
 
-use Firevel\FirebaseAuthentication\FirebaseAuthenticable;
 use Illuminate\Foundation\Auth\User as Authenticatable;
 
 class FirebaseIdentity extends Authenticatable
