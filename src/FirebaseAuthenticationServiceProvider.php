@@ -3,8 +3,8 @@
 namespace Firevel\FirebaseAuthentication;
 
 use Auth;
-use Firebase\Auth\Token\HttpKeyStore;
-use Firebase\Auth\Token\Verifier;
+use Kreait\Firebase\JWT\IdTokenVerifier;
+use Symfony\Component\Cache\Adapter\FilesystemAdapter;
 use Illuminate\Foundation\Support\Providers\AuthServiceProvider as ServiceProvider;
 
 class FirebaseAuthenticationServiceProvider extends ServiceProvider
@@ -30,16 +30,19 @@ class FirebaseAuthenticationServiceProvider extends ServiceProvider
      */
     public function register()
     {
-        $this->app->singleton(Verifier::class, function ($app) {
+        $this->app->singleton(IdTokenVerifier::class, function ($app) {
             $project = config('firebase.project_id', env('GOOGLE_CLOUD_PROJECT'));
 
             if (empty($project)) {
                 throw new \Exception('Missing GOOGLE_CLOUD_PROJECT env variable.');
             }
+            $cache = new FilesystemAdapter(
+                // a string used as the subdirectory of the root cache directory, where cache
+                // items will be stored
+                $namespace = 'firebase-token-cache'
+            );
 
-            $keyStore = new HttpKeyStore(null, cache()->store());
-
-            return new Verifier($project, $keyStore);
+            return IdTokenVerifier::createWithProjectIdAndCache($project, $cache);
         });
     }
 }

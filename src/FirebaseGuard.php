@@ -2,23 +2,23 @@
 
 namespace Firevel\FirebaseAuthentication;
 
-use Firebase\Auth\Token\Verifier;
+use Kreait\Firebase\JWT\IdTokenVerifier;
 use Illuminate\Http\Request;
 
 class FirebaseGuard
 {
     /**
-     * @var Firebase\Auth\Token\Verifier
+     * @var Kreait\Firebase\JWT\IdTokenVerifier
      */
     protected $verifier;
 
     /**
      * Constructor.
      *
-     * @param  Verifier  $verifier
+     * @param  IdTokenVerifier  $verifier
      * @return void
      */
-    public function __construct(Verifier $verifier)
+    public function __construct(IdTokenVerifier $verifier)
     {
         $this->verifier = $verifier;
     }
@@ -39,9 +39,8 @@ class FirebaseGuard
 
         try {
             $firebaseToken = $this->verifier->verifyIdToken($token);
-
             return app(config('auth.providers.users.model'))
-                ->resolveByClaims($firebaseToken->claims()->all())
+                ->resolveByClaims($firebaseToken->payload())
                 ->setFirebaseAuthenticationToken($token);
         } catch (\Exception $e) {
             if ($e instanceof \Firebase\Auth\Token\Exception\ExpiredToken) {

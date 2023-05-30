@@ -3,7 +3,8 @@
     "description": "Firebase authentication driver for Laravel",
     "type": "library",
     "require": {
-        "kreait/firebase-tokens": "^4.0"
+        "kreait/firebase-tokens": "^4.0",
+        "symfony/cache": "^6.2"
     },
     "license": "MIT",
     "autoload": {
