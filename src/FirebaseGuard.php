@@ -2,8 +2,8 @@
 
 namespace Firevel\FirebaseAuthentication;
 
-use Kreait\Firebase\JWT\IdTokenVerifier;
 use Illuminate\Http\Request;
+use Kreait\Firebase\JWT\IdTokenVerifier;
 
 class FirebaseGuard
 {
@@ -39,6 +39,7 @@ class FirebaseGuard
 
         try {
             $firebaseToken = $this->verifier->verifyIdToken($token);
+
             return app(config('auth.providers.users.model'))
                 ->resolveByClaims($firebaseToken->payload())
                 ->setFirebaseAuthenticationToken($token);
