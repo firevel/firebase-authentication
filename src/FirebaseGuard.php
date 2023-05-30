@@ -44,8 +44,10 @@ class FirebaseGuard
                 ->resolveByClaims($firebaseToken->payload())
                 ->setFirebaseAuthenticationToken($token);
         } catch (\Exception $e) {
-            if ($e instanceof \Firebase\Auth\Token\Exception\ExpiredToken) {
-                return;
+            if ($e instanceof \Kreait\Firebase\JWT\Error\IdTokenVerificationFailed) {
+                if (str_contains($e->getMessage(), 'token is expired')) {
+                    return;
+                }
             }
 
             if (config('app.debug')) {
