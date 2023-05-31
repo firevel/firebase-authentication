@@ -1,19 +1,24 @@
-# Firebase Authentication for Laravel
+# Laravel Firebase Authentication
 
-Firebase authentication API driver for Laravel/Firevel.
+A robust Firebase Authentication API driver for Laravel and Firevel.
 
-## Overview
+## Introduction
 
-The driver contains a firebase guard that authenticates user by Firebase Authentication JWT token. To login use [Firebase Authentication](https://firebase.google.com/docs/auth/web/firebaseui).
+Laravel Firebase Authentication provides a sophisticated firebase guard for user authentication via the Firebase Authentication JWT token. This allows you to securely authenticate users in your Laravel or Firevel applications, leveraging the power of [Firebase Authentication](https://firebase.google.com/docs/auth/web/firebaseui).
 
-## Installation
+## Getting Started
 
-### Install the package using composer.
+Follow these steps to get started with Laravel Firebase Authentication.
+
+### Installation
+Begin by installing the package using composer with the command:
+
 ```
 composer require firevel/firebase-authentication
 ```
 
-### Update `config/auth.php`.
+### Standard Configuration
+1. **Update `config/auth.php`**: Specify Firebase as the authentication driver for your application.
 ```
 'guards' => [
     'web' => [
@@ -27,14 +32,12 @@ composer require firevel/firebase-authentication
     ],
 ],
 ```
-### Set firebase project name.
-Add `GOOGLE_CLOUD_PROJECT` to your env or `firebase.project_id` config variable.
+2. **Set Firebase project name**: Configure your firebase project by adding **`GOOGLE_CLOUD_PROJECT`** to your environment variables or set the **`firebase.project_id`** config variable.
+3. **Update your `User` model**: Integrate **`Firevel\FirebaseAuthentication\FirebaseAuthenticable`** trait, set **`$incrementing = false`** and define `$fillable`.
 
-### Update your `User` model.
-Add `Firevel\FirebaseAuthentication\FirebaseAuthenticable` trait `$incrementing = false` and fillables.
+Below are examples of how to update your User model for Eloquent and Firequent:
 
-
-Eloquent example:
+Eloquent
 ```
 <?php
 
@@ -67,7 +70,7 @@ class User extends Authenticatable
 }
 
 ```
-Firequent example:
+Firequent
 ```
 <?php
 
@@ -101,8 +104,7 @@ class User extends Model implements Authenticatable
 }
 
 ```
-
-### If you are using Eloquent you need to create or update migration for users table manually.
+4. **Update Migration for users table**: If you're using Eloquent, you'll need to manually create or update the migration for the users table.
 ```
 $table->string('id');
 $table->string('name');
@@ -111,11 +113,29 @@ $table->string('picture');
 $table->timestamps();
 ```
 
-## Web guard
+## Micro-service Configuration
 
-In order to use firebase authentication in web routes you must attach bearer token to each http request.
+To avoid sharing users database credentials between micro-services, the recommended configuration differs slightly:
 
-You can also store bearer token in `bearer_token` cookie variable and add to your `Kernel.php`:
+1. **Update `config/auth.php`**: Specify Firebase as the authentication driver for the 'api' guard.
+```
+'guards' => [
+    ...
+    'api' => [
+        'driver' => 'firebase',
+        'provider' => 'users',
+    ],
+],
+```
+2. **Update User Provider**: In the **`config/auth.php`** file, define the user provider to use the **`Firevel\FirebaseAuthentication\FirebaseIdentity`** model.
+
+
+## Web Guard Usage
+
+To utilize firebase authentication within your web routes, it is necessary to attach the bearer token to each HTTP request.
+
+The bearer token can be stored in the `bearer_token` cookie variable. To do this, add the following to your `Kernel.php`:
+
 ```
     protected $middlewareGroups = [
         'web' => [
@@ -128,8 +148,7 @@ You can also store bearer token in `bearer_token` cookie variable and add to you
     ];
 ```
 
-If you are using `EncryptCookies` middleware you must set:
-
+If the EncryptCookies middleware is in use, the following settings must be applied:
 ```
     protected $except = [
         ...
@@ -137,7 +156,3 @@ If you are using `EncryptCookies` middleware you must set:
         ...
     ];
 ```
-
-## Usage
-
-Attach to each API call regular bearer token provided by Firebase Authentication.
