@@ -128,7 +128,15 @@ To avoid sharing users database credentials between micro-services, the recommen
 ],
 ```
 2. **Update User Provider**: In the **`config/auth.php`** file, define the user provider to use the **`Firevel\FirebaseAuthentication\FirebaseIdentity`** model.
-
+```
+'providers' => [
+    ...
+    'users' => [
+        'driver' => 'eloquent',
+        'model' => Firevel\FirebaseAuthentication\FirebaseIdentity::class,
+    ],
+],
+```
 
 ## Web Guard Usage
 
