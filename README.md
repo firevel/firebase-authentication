@@ -137,6 +137,7 @@ To avoid sharing users database credentials between micro-services, the recommen
     ],
 ],
 ```
+If you are using Laravel 11+ you can use the AUTH_MODEL env variable `AUTH_MODEL=Firevel\FirebaseAuthentication\FirebaseIdentity`.
 
 ## Web Guard Usage
 
