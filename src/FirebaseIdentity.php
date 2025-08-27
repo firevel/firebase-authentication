@@ -25,7 +25,6 @@ class FirebaseIdentity extends Authenticatable
     /**
      * Save blocker.
      *
-     * @param  array  $options
      * @return bool
      */
     public function save(array $options = [])
@@ -36,7 +35,6 @@ class FirebaseIdentity extends Authenticatable
     /**
      * Get User by claim.
      *
-     * @param  array  $claims
      * @return self
      */
     public function resolveByClaims(array $claims): object

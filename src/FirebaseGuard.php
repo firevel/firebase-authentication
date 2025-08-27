@@ -15,7 +15,6 @@ class FirebaseGuard
     /**
      * Constructor.
      *
-     * @param  IdTokenVerifier  $verifier
      * @return void
      */
     public function __construct(IdTokenVerifier $verifier)
@@ -26,7 +25,6 @@ class FirebaseGuard
     /**
      * Get User by request claims.
      *
-     * @param  Request  $request
      * @return mixed|null
      */
     public function user(Request $request)
