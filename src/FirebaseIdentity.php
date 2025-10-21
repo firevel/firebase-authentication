@@ -42,6 +42,6 @@ class FirebaseIdentity extends Authenticatable
         $attributes = $this->transformClaims($claims);
         $attributes['id'] = (string) $claims['sub'];
 
-        return $this->fill($attributes);
+        return $this->fill($attributes)->setClaims($claims);
     }
 }

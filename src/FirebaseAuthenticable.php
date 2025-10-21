@@ -29,7 +29,7 @@ trait FirebaseAuthenticable
 
         $attributes = $this->transformClaims($claims);
 
-        return $this->updateOrCreateUser($id, $attributes);
+        return $this->updateOrCreateUser($id, $attributes)->setClaims($claims);
     }
 
     /**
@@ -101,6 +101,42 @@ trait FirebaseAuthenticable
     public function getFirebaseAuthenticationToken()
     {
         return $this->firebaseAuthenticationToken;
+    }
+
+    /**
+     * Set claims from JWT token.
+     *
+     * @param  array  $claims
+     * @return self
+     */
+    public function setClaims(array $claims)
+    {
+        $this->claims = $claims;
+
+        return $this;
+    }
+
+    /**
+     * Get claims from JWT token.
+     *
+     * @return array
+     */
+    public function getClaims()
+    {
+        return $this->claims ?? [];
+    }
+
+    /**
+     * Check if user is anonymous.
+     *
+     * @return bool
+     */
+    public function isAnonymous()
+    {
+        $claims = $this->getClaims();
+
+        return isset($claims['firebase']['sign_in_provider'])
+            && $claims['firebase']['sign_in_provider'] === 'anonymous';
     }
 
     /**
