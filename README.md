@@ -779,22 +779,6 @@ composer update firevel/firebase-authentication
 
 Contributions are welcome! Please feel free to submit a Pull Request.
 
-### Development Setup
-
-```bash
-# Clone the repository
-git clone https://github.com/firevel/firebase-authentication.git
-
-# Install dependencies
-composer install
-
-# Run tests (when available)
-composer test
-
-# Format code
-./vendor/bin/pint
-```
-
 ### Guidelines
 
 - Follow PSR-12 coding standards
