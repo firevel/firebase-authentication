@@ -33,14 +33,31 @@ trait FirebaseAuthenticable
     ];
 
     /**
+     * The attribute to use for matching existing users.
+     *
+     * Formats:
+     * - ['claim_key' => 'model_attribute'] - e.g., ['sub' => 'id'] or ['sub' => 'firebase_uid']
+     * - 'attribute_name' - e.g., 'email' (uses same name for claim and model attribute)
+     *
+     * @var array|string
+     */
+    protected $firebaseResolveBy = ['sub' => 'id'];
+
+    /**
      * Get User by claim.
      *
      * @return self
      */
     public function resolveByClaims(array $claims): object
     {
-        $id = (string) $claims['sub'];
+        // Parse firebaseResolveBy to get claim key
+        if (is_string($this->firebaseResolveBy)) {
+            $claimKey = $this->firebaseResolveBy;
+        } else {
+            $claimKey = array_key_first($this->firebaseResolveBy);
+        }
 
+        $id = (string) $claims[$claimKey];
         $attributes = $this->transformClaims($claims);
 
         return $this->updateOrCreateUser($id, $attributes)->setClaims($claims);
@@ -54,9 +71,16 @@ trait FirebaseAuthenticable
      */
     public function updateOrCreateUser($id, array $attributes): object
     {
-        if ($user = $this->find($id)) {
-            $user
-                ->fill($attributes);
+        // Parse firebaseResolveBy to get model attribute
+        if (is_string($this->firebaseResolveBy)) {
+            $modelAttribute = $this->firebaseResolveBy;
+        } else {
+            $modelAttribute = array_values($this->firebaseResolveBy)[0];
+        }
+
+        // Try to find existing user by the configured attribute
+        if ($user = $this->where($modelAttribute, $id)->first()) {
+            $user->fill($attributes);
 
             if ($user->isDirty()) {
                 $user->save();
@@ -65,8 +89,9 @@ trait FirebaseAuthenticable
             return $user;
         }
 
+        // Create new user
         $user = $this->fill($attributes);
-        $user->id = $id;
+        $user->$modelAttribute = $id;
         $user->save();
 
         return $user;

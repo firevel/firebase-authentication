@@ -84,6 +84,9 @@ class User extends Authenticatable
     public $incrementing = false;
     protected $fillable = ['name', 'email', 'picture'];
 
+    // Optional: Customize how users are matched (default: ['sub' => 'id'])
+    protected $firebaseResolveBy = ['sub' => 'id']; // or 'email' to match by email
+
     // Optional: Customize which Firebase claims map to which user attributes
     protected $firebaseClaimsMapping = [
         'email' => 'email',
@@ -547,6 +550,27 @@ Retrieves the raw JWT token.
 $token = $user->getFirebaseAuthenticationToken();
 ```
 
+#### `$firebaseResolveBy` Property
+
+Controls which attribute is used to match existing users in your database. This determines how the package looks up users when authenticating.
+
+```php
+// Default: Match by Firebase UID (sub claim) to id column
+protected $firebaseResolveBy = ['sub' => 'id'];
+
+// Match by email (when claim name = model attribute)
+protected $firebaseResolveBy = 'email';
+
+// Match by Firebase UID to custom column
+protected $firebaseResolveBy = ['sub' => 'firebase_uid'];
+```
+
+**Default behavior:** `['sub' => 'id']` - matches Firebase UID (sub claim) to the `id` column
+
+**Formats:**
+- **Array format** `['claim_key' => 'model_attribute']` - Use when claim name differs from model attribute (e.g., `['sub' => 'firebase_uid']`)
+- **String format** `'attribute_name'` - Use when claim and model attribute have the same name (e.g., `'email'`)
+
 #### `$firebaseClaimsMapping` Property
 
 Controls how Firebase JWT claims are mapped to user model attributes. Define this property in your User model to customize the mapping:
@@ -591,6 +615,89 @@ public function transformClaims(array $claims): array
 The guard is automatically registered and handles authentication. You typically don't interact with it directly, but use Laravel's `auth()` helper.
 
 ## Common Use Cases
+
+### Matching Users by Email Instead of Firebase UID
+
+If you have an existing user database and want to match Firebase users by email instead of Firebase UID:
+
+```php
+// App/Models/User.php
+class User extends Authenticatable
+{
+    use FirebaseAuthenticable;
+
+    // Match users by email instead of Firebase UID
+    protected $firebaseResolveBy = 'email';
+
+    // Auto-incrementing integer ID
+    public $incrementing = true;
+    protected $keyType = 'int';
+
+    protected $fillable = [
+        'name',
+        'email',
+        'picture',
+    ];
+
+    protected $firebaseClaimsMapping = [
+        'email' => 'email',
+        'name' => 'name',
+        'picture' => 'picture',
+    ];
+}
+```
+
+**Migration:**
+```php
+Schema::create('users', function (Blueprint $table) {
+    $table->id(); // Auto-incrementing integer ID
+    $table->string('email')->unique();
+    $table->string('name')->nullable();
+    $table->string('picture')->nullable();
+    $table->timestamps();
+});
+```
+
+**Use case:** When migrating from a traditional authentication system to Firebase, this allows you to keep your existing user IDs and match by email.
+
+### Using Custom Firebase UID Column
+
+If you want to store Firebase UID in a separate column while keeping an auto-incrementing primary key:
+
+```php
+// App/Models/User.php
+class User extends Authenticatable
+{
+    use FirebaseAuthenticable;
+
+    // Match Firebase UID (sub claim) to firebase_uid column
+    protected $firebaseResolveBy = ['sub' => 'firebase_uid'];
+
+    public $incrementing = true;
+    protected $keyType = 'int';
+
+    protected $fillable = [
+        'firebase_uid',
+        'name',
+        'email',
+        'picture',
+    ];
+}
+```
+
+**Migration:**
+```php
+Schema::create('users', function (Blueprint $table) {
+    $table->id();
+    $table->string('firebase_uid')->unique();
+    $table->string('email')->unique()->nullable();
+    $table->string('name')->nullable();
+    $table->string('picture')->nullable();
+    $table->timestamps();
+
+    $table->index('firebase_uid'); // Index for faster lookups
+});
+```
 
 ### Role-Based Access Control with Custom Claims
 
