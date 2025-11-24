@@ -20,7 +20,7 @@ trait FirebaseAuthenticable
 
     /**
      * Mapping of model attributes to Firebase claim keys.
-     * Format: ['model_attribute' => 'claim_key']
+     * Format: ['model_attribute' => 'claim_key'].
      *
      * Override this property in your User model to customize claim mapping.
      *
