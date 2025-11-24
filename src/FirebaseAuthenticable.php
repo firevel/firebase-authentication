@@ -19,6 +19,20 @@ trait FirebaseAuthenticable
     protected $firebaseAuthenticationToken;
 
     /**
+     * Mapping of model attributes to Firebase claim keys.
+     * Format: ['model_attribute' => 'claim_key']
+     *
+     * Override this property in your User model to customize claim mapping.
+     *
+     * @var array
+     */
+    protected $firebaseClaimsMapping = [
+        'email' => 'email',
+        'name' => 'name',
+        'picture' => 'picture',
+    ];
+
+    /**
      * Get User by claim.
      *
      * @return self
@@ -65,16 +79,10 @@ trait FirebaseAuthenticable
     {
         $attributes = [];
 
-        if (! empty($claims['email'])) {
-            $attributes['email'] = (string) $claims['email'];
-        }
-
-        if (! empty($claims['name'])) {
-            $attributes['name'] = (string) $claims['name'];
-        }
-
-        if (! empty($claims['picture'])) {
-            $attributes['picture'] = (string) $claims['picture'];
+        foreach ($this->firebaseClaimsMapping as $attribute => $claimKey) {
+            if (! empty($claims[$claimKey])) {
+                $attributes[$attribute] = (string) $claims[$claimKey];
+            }
         }
 
         return $attributes;

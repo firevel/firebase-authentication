@@ -83,6 +83,13 @@ class User extends Authenticatable
 
     public $incrementing = false;
     protected $fillable = ['name', 'email', 'picture'];
+
+    // Optional: Customize which Firebase claims map to which user attributes
+    protected $firebaseClaimsMapping = [
+        'email' => 'email',
+        'name' => 'name',
+        'picture' => 'picture',
+    ];
 }
 ```
 
@@ -540,18 +547,39 @@ Retrieves the raw JWT token.
 $token = $user->getFirebaseAuthenticationToken();
 ```
 
+#### `$firebaseClaimsMapping` Property
+
+Controls how Firebase JWT claims are mapped to user model attributes. Define this property in your User model to customize the mapping:
+
+```php
+protected $firebaseClaimsMapping = [
+    'email' => 'email',          // Model attribute => JWT claim key
+    'name' => 'name',
+    'picture' => 'picture',
+    'phone' => 'phone_number',   // Map phone_number claim to phone attribute
+];
+```
+
+**Default mapping:**
+- `email` → `email`
+- `name` → `name`
+- `picture` → `picture`
+
 #### `transformClaims(array $claims): array`
 
-Transforms JWT claims into user attributes. Override this method to customize claim mapping:
+Transforms JWT claims into user attributes using the `$firebaseClaimsMapping` property. Override this method for advanced customization beyond simple mapping:
 
 ```php
 public function transformClaims(array $claims): array
 {
+    // Start with the standard mapping
     $attributes = parent::transformClaims($claims);
 
-    // Add custom claim transformations
-    if (!empty($claims['phone_number'])) {
-        $attributes['phone'] = $claims['phone_number'];
+    // Add conditional logic or data transformation
+    if (!empty($claims['email_verified'])) {
+        $attributes['email_verified_at'] = $claims['email_verified']
+            ? now()
+            : null;
     }
 
     return $attributes;
@@ -597,26 +625,55 @@ Route::middleware(['auth:api', 'role:admin'])->group(function () {
 
 ### Syncing Additional User Data
 
+**Simple Mapping (Recommended):**
+
+Use the `$firebaseClaimsMapping` property for straightforward claim-to-attribute mapping:
+
+```php
+// App/Models/User.php
+class User extends Authenticatable
+{
+    use FirebaseAuthenticable;
+
+    protected $firebaseClaimsMapping = [
+        'email' => 'email',
+        'name' => 'name',
+        'picture' => 'picture',
+        'phone' => 'phone_number',    // Map phone_number claim to phone
+        'locale' => 'locale',          // Map locale claim to locale
+    ];
+
+    protected $fillable = [
+        'name',
+        'email',
+        'picture',
+        'phone',
+        'locale',
+    ];
+}
+```
+
+**Advanced Mapping with Transformation Logic:**
+
+Override `transformClaims()` when you need conditional logic or data transformation:
+
 ```php
 // App/Models/User.php
 public function transformClaims(array $claims): array
 {
+    // Start with the standard mapping from $firebaseClaimsMapping
     $attributes = parent::transformClaims($claims);
 
-    // Map additional Firebase claims
-    if (!empty($claims['phone_number'])) {
-        $attributes['phone'] = $claims['phone_number'];
-    }
-
+    // Add conditional transformations
     if (!empty($claims['email_verified'])) {
         $attributes['email_verified_at'] = $claims['email_verified']
             ? now()
             : null;
     }
 
-    // Map custom claims
-    if (!empty($claims['locale'])) {
-        $attributes['locale'] = $claims['locale'];
+    // Transform data format
+    if (!empty($claims['metadata']['creationTime'])) {
+        $attributes['firebase_created_at'] = Carbon::parse($claims['metadata']['creationTime']);
     }
 
     return $attributes;
