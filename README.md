@@ -272,7 +272,7 @@ Route::middleware('auth:api')->group(function () {
 
 To use Firebase authentication with web routes (session-based), you need to extract the bearer token from cookies.
 
-#### 1. Add Middleware
+#### Add Middleware
 
 In `bootstrap/app.php` (Laravel 11+):
 
@@ -295,27 +295,7 @@ protected $middlewareGroups = [
 ];
 ```
 
-#### 2. Exclude Cookie from Encryption
-
-The `bearer_token` cookie must not be encrypted.
-
-**Laravel 11+** in `bootstrap/app.php`:
-
-```php
-->withMiddleware(function (Middleware $middleware) {
-    $middleware->encryptCookies(except: [
-        'bearer_token',
-    ]);
-})
-```
-
-**Laravel 10 and below** in `app/Http/Middleware/EncryptCookies.php`:
-
-```php
-protected $except = [
-    'bearer_token',
-];
-```
+The middleware reads the raw cookie value directly, so no encryption exclusion configuration is required.
 
 ## Usage
 
@@ -925,9 +905,8 @@ composer require kreait/firebase-tokens symfony/cache
 
 **Solution:**
 1. Ensure `AddAccessTokenFromCookie` middleware is added to web middleware group
-2. Verify `bearer_token` is excluded from cookie encryption
-3. Check that frontend is setting the cookie correctly
-4. Verify cookie domain matches your application domain
+2. Check that frontend is setting the cookie correctly
+3. Verify cookie domain matches your application domain
 
 ### Anonymous users can't be identified
 

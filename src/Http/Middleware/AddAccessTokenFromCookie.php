@@ -16,8 +16,8 @@ class AddAccessTokenFromCookie
     {
         if (empty($request->bearerToken())) {
             $tokenCookie = config('firebase.token_cookie', 'bearer_token');
-            if ($request->hasCookie($tokenCookie)) {
-                $token = $request->cookie($tokenCookie);
+            $token = $request->cookies->get($tokenCookie);
+            if (! empty($token)) {
                 $request->headers->add(['Authorization' => 'Bearer '.$token]);
             }
         }
