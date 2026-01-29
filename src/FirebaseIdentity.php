@@ -39,13 +39,15 @@ class FirebaseIdentity extends Authenticatable
      */
     public function resolveByClaims(array $claims): object
     {
+        $resolveBy = $this->getFirebaseResolveBy();
+
         // Parse firebaseResolveBy to get claim key and model attribute
-        if (is_string($this->firebaseResolveBy)) {
-            $claimKey = $this->firebaseResolveBy;
-            $modelAttribute = $this->firebaseResolveBy;
+        if (is_string($resolveBy)) {
+            $claimKey = $resolveBy;
+            $modelAttribute = $resolveBy;
         } else {
-            $claimKey = array_key_first($this->firebaseResolveBy);
-            $modelAttribute = array_values($this->firebaseResolveBy)[0];
+            $claimKey = array_key_first($resolveBy);
+            $modelAttribute = array_values($resolveBy)[0];
         }
 
         $attributes = $this->transformClaims($claims);

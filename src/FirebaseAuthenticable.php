@@ -19,29 +19,45 @@ trait FirebaseAuthenticable
     protected $firebaseAuthenticationToken;
 
     /**
-     * Mapping of model attributes to Firebase claim keys.
-     * Format: ['model_attribute' => 'claim_key'].
+     * Get the Firebase claims mapping configuration.
      *
-     * Override this property in your User model to customize claim mapping.
+     * Override this method in your User model to customize claim mapping.
+     * Format: ['model_attribute' => 'claim_key']
      *
-     * @var array
+     * @return array
      */
-    protected $firebaseClaimsMapping = [
-        'email' => 'email',
-        'name' => 'name',
-        'picture' => 'picture',
-    ];
+    protected function getFirebaseClaimsMapping(): array
+    {
+        if (property_exists($this, 'firebaseClaimsMapping')) {
+            return $this->firebaseClaimsMapping;
+        }
+
+        return [
+            'email' => 'email',
+            'name' => 'name',
+            'picture' => 'picture',
+        ];
+    }
 
     /**
-     * The attribute to use for matching existing users.
+     * Get the attribute configuration for matching existing users.
+     *
+     * Override this method or set the $firebaseResolveBy property in your User model.
      *
      * Formats:
      * - ['claim_key' => 'model_attribute'] - e.g., ['sub' => 'id'] or ['sub' => 'firebase_uid']
      * - 'attribute_name' - e.g., 'email' (uses same name for claim and model attribute)
      *
-     * @var array|string
+     * @return array|string
      */
-    protected $firebaseResolveBy = ['sub' => 'id'];
+    protected function getFirebaseResolveBy(): array|string
+    {
+        if (property_exists($this, 'firebaseResolveBy')) {
+            return $this->firebaseResolveBy;
+        }
+
+        return ['sub' => 'id'];
+    }
 
     /**
      * Get User by claim.
@@ -50,11 +66,13 @@ trait FirebaseAuthenticable
      */
     public function resolveByClaims(array $claims): object
     {
+        $resolveBy = $this->getFirebaseResolveBy();
+
         // Parse firebaseResolveBy to get claim key
-        if (is_string($this->firebaseResolveBy)) {
-            $claimKey = $this->firebaseResolveBy;
+        if (is_string($resolveBy)) {
+            $claimKey = $resolveBy;
         } else {
-            $claimKey = array_key_first($this->firebaseResolveBy);
+            $claimKey = array_key_first($resolveBy);
         }
 
         $id = (string) $claims[$claimKey];
@@ -71,11 +89,13 @@ trait FirebaseAuthenticable
      */
     public function updateOrCreateUser($id, array $attributes): object
     {
+        $resolveBy = $this->getFirebaseResolveBy();
+
         // Parse firebaseResolveBy to get model attribute
-        if (is_string($this->firebaseResolveBy)) {
-            $modelAttribute = $this->firebaseResolveBy;
+        if (is_string($resolveBy)) {
+            $modelAttribute = $resolveBy;
         } else {
-            $modelAttribute = array_values($this->firebaseResolveBy)[0];
+            $modelAttribute = array_values($resolveBy)[0];
         }
 
         // Try to find existing user by the configured attribute
@@ -104,7 +124,7 @@ trait FirebaseAuthenticable
     {
         $attributes = [];
 
-        foreach ($this->firebaseClaimsMapping as $attribute => $claimKey) {
+        foreach ($this->getFirebaseClaimsMapping() as $attribute => $claimKey) {
             if (! empty($claims[$claimKey])) {
                 $attributes[$attribute] = (string) $claims[$claimKey];
             }
