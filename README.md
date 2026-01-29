@@ -85,13 +85,12 @@ class User extends Authenticatable
     protected $fillable = ['name', 'email', 'picture'];
 
     // Optional: Customize how users are matched (default: ['sub' => 'id'])
-    protected $firebaseResolveBy = ['sub' => 'id']; // or 'email' to match by email
+    protected $firebaseResolveBy = 'email'; // use 'email' to automatically create or find user by email
 
     // Optional: Customize which Firebase claims map to which user attributes
     protected $firebaseClaimsMapping = [
         'email' => 'email',
         'name' => 'name',
-        'picture' => 'picture',
     ];
 }
 ```
