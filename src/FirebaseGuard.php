@@ -25,9 +25,10 @@ class FirebaseGuard
     /**
      * Get User by request claims.
      *
+     * @param  string|null  $modelClass  The model class to resolve the user from.
      * @return mixed|null
      */
-    public function user(Request $request)
+    public function user(Request $request, ?string $modelClass = null)
     {
         $token = $request->bearerToken();
 
@@ -38,7 +39,9 @@ class FirebaseGuard
         try {
             $firebaseToken = $this->verifier->verifyIdToken($token);
 
-            return app(config('auth.providers.users.model'))
+            $model = $modelClass ?? config('auth.providers.users.model');
+
+            return app($model)
                 ->resolveByClaims($firebaseToken->payload())
                 ->setFirebaseAuthenticationToken($token);
         } catch (\Exception $e) {

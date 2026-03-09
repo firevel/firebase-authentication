@@ -14,6 +14,7 @@ A production-ready Firebase Authentication driver for Laravel that enables seaml
 - [Configuration](#configuration)
   - [Standard Setup (with Database)](#standard-setup-with-database)
   - [Microservice Setup (without Database)](#microservice-setup-without-database)
+  - [Multiple Guards](#multiple-guards)
   - [Web Guard Configuration](#web-guard-configuration)
 - [Usage](#usage)
   - [Basic Authentication](#basic-authentication)
@@ -266,6 +267,77 @@ Route::middleware('auth:api')->group(function () {
 - Lightweight and fast
 - Perfect for serverless deployments
 - User data available from JWT claims
+
+### Multiple Guards
+
+You can configure multiple Firebase guards with different providers. This is useful when some routes need database-backed users while others only need token verification (e.g., a registration endpoint for users that don't exist in the database yet).
+
+#### 1. Update Authentication Configuration
+
+In `config/auth.php`, define two guards with different providers:
+
+```php
+'guards' => [
+    'api' => [
+        'driver' => 'firebase',
+        'provider' => 'users',          // DB-backed User model
+    ],
+    'register' => [
+        'driver' => 'firebase',
+        'provider' => 'firebase',       // FirebaseIdentity (no DB)
+    ],
+],
+
+'providers' => [
+    'users' => [
+        'driver' => 'eloquent',
+        'model' => App\Models\User::class,
+    ],
+    'firebase' => [
+        'driver' => 'eloquent',
+        'model' => Firevel\FirebaseAuthentication\FirebaseIdentity::class,
+    ],
+],
+```
+
+#### 2. Protect Your Routes
+
+Use the appropriate guard for each route:
+
+```php
+// Registration endpoint — user may not exist in DB yet
+Route::middleware('auth:register')->post('/api/register', [RegisterController::class, 'store']);
+
+// All other API routes — requires DB-backed user
+Route::middleware('auth:api')->group(function () {
+    Route::get('/api/profile', [ProfileController::class, 'show']);
+    Route::put('/api/profile', [ProfileController::class, 'update']);
+});
+```
+
+#### 3. Access User Data in Registration
+
+In your registration controller, you can access the Firebase identity claims to create the database user:
+
+```php
+class RegisterController extends Controller
+{
+    public function store(Request $request)
+    {
+        $identity = $request->user(); // FirebaseIdentity instance
+
+        $user = User::create([
+            'id' => $identity->id,
+            'email' => $identity->email,
+            'name' => $identity->name,
+        ]);
+
+        return response()->json($user, 201);
+    }
+}
+```
+
+Each guard resolves users through its own provider, so the `api` guard will look up/create users in the database while the `register` guard returns a lightweight `FirebaseIdentity` populated from JWT claims.
 
 ### Web Guard Configuration
 

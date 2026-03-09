@@ -3,6 +3,7 @@
 namespace Firevel\FirebaseAuthentication;
 
 use Auth;
+use Illuminate\Auth\RequestGuard;
 use Illuminate\Foundation\Support\Providers\AuthServiceProvider as ServiceProvider;
 use Kreait\Firebase\JWT\IdTokenVerifier;
 use Symfony\Component\Cache\Adapter\FilesystemAdapter;
@@ -18,8 +19,13 @@ class FirebaseAuthenticationServiceProvider extends ServiceProvider
     {
         $this->registerPolicies();
 
-        Auth::viaRequest('firebase', function ($request) {
-            return app(FirebaseGuard::class)->user($request);
+        Auth::extend('firebase', function ($app, $name, array $config) {
+            $provider = $config['provider'] ?? 'users';
+            $model = config("auth.providers.{$provider}.model");
+
+            return new RequestGuard(function ($request) use ($model) {
+                return app(FirebaseGuard::class)->user($request, $model);
+            }, $app['request']);
         });
     }
 
