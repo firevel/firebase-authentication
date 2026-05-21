@@ -205,6 +205,17 @@ Run the migration:
 php artisan migrate
 ```
 
+**Alternative: Adapt Laravel's default users table**
+
+If you started with Laravel's default `users` table and want to convert it for Firebase, publish the bundled migration:
+
+```bash
+php artisan vendor:publish --tag=firebase-authentication-migrations
+php artisan migrate
+```
+
+The published migration changes the `id` column to a string primary key (to hold Firebase UID), makes `password` nullable, and adds a `picture` column after `email`. It is destructive to existing user rows — intended for fresh setups, not populated production tables.
+
 ### Microservice Setup (without Database)
 
 For microservices that only need to verify authentication without storing user data, use the `FirebaseIdentity` model.

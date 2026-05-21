@@ -1,0 +1,55 @@
+<?php
+
+use Illuminate\Database\Migrations\Migration;
+use Illuminate\Database\Schema\Blueprint;
+use Illuminate\Support\Facades\Schema;
+
+use function Laravel\Prompts\confirm;
+
+return new class extends Migration
+{
+    public function up(): void
+    {
+        if (! $this->confirmDestructiveChange()) {
+            return;
+        }
+
+        Schema::table('users', function (Blueprint $table) {
+            $table->dropColumn('id');
+        });
+
+        Schema::table('users', function (Blueprint $table) {
+            $table->string('id')->primary()->first();
+            $table->string('password')->nullable()->change();
+            $table->string('picture')->nullable()->after('email');
+        });
+    }
+
+    public function down(): void
+    {
+        Schema::table('users', function (Blueprint $table) {
+            $table->dropColumn(['id', 'picture']);
+            $table->string('password')->nullable(false)->change();
+        });
+
+        Schema::table('users', function (Blueprint $table) {
+            $table->id()->first();
+        });
+    }
+
+    private function confirmDestructiveChange(): bool
+    {
+        if (! app()->runningInConsole() || app()->runningUnitTests()) {
+            return true;
+        }
+
+        if (in_array('--force', $_SERVER['argv'] ?? [], true)) {
+            return true;
+        }
+
+        return confirm(
+            label: 'This migration will drop the existing users.id column and recreate it as a string primary key. Existing user IDs will be lost. Proceed?',
+            default: false,
+        );
+    }
+};
