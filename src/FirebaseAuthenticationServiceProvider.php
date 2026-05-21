@@ -19,12 +19,6 @@ class FirebaseAuthenticationServiceProvider extends ServiceProvider
     {
         $this->registerPolicies();
 
-        if ($this->app->runningInConsole()) {
-            $this->publishes([
-                __DIR__.'/../database/migrations/prepare_users_table_for_firebase.php.stub' => database_path('migrations/'.date('Y_m_d_His').'_prepare_users_table_for_firebase.php'),
-            ], 'firebase-authentication-migrations');
-        }
-
         Auth::extend('firebase', function ($app, $name, array $config) {
             $provider = $config['provider'] ?? 'users';
             $model = config("auth.providers.{$provider}.model");
