@@ -165,13 +165,6 @@ class User extends Authenticatable
     use Notifiable, FirebaseAuthenticable;
 
     /**
-     * The "type" of the primary key ID.
-     *
-     * @var string
-     */
-    protected $keyType = 'string';
-
-    /**
      * The attributes that are mass assignable.
      *
      * @var array<string>
