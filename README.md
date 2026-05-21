@@ -82,7 +82,6 @@ class User extends Authenticatable
 {
     use FirebaseAuthenticable;
 
-    public $incrementing = false;
     protected $fillable = ['name', 'email', 'picture'];
 
     // Optional: Customize how users are matched (default: ['sub' => 'id'])
@@ -164,13 +163,6 @@ use Illuminate\Notifications\Notifiable;
 class User extends Authenticatable
 {
     use Notifiable, FirebaseAuthenticable;
-
-    /**
-     * Indicates if the IDs are auto-incrementing.
-     *
-     * @var bool
-     */
-    public $incrementing = false;
 
     /**
      * The "type" of the primary key ID.
