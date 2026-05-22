@@ -5,7 +5,6 @@ namespace Firevel\FirebaseAuthentication;
 use Firevel\FirebaseAuthentication\Events\FirebaseUserCreated;
 use Firevel\FirebaseAuthentication\Events\FirebaseUserResolved;
 use Firevel\FirebaseAuthentication\Events\FirebaseUserUpdated;
-use Illuminate\Support\Facades\Schema;
 
 trait FirebaseAuthenticable
 {
@@ -163,7 +162,12 @@ trait FirebaseAuthenticable
     }
 
     /**
-     * Check whether the user model exposes a given attribute/column.
+     * Whether the given attribute is exposed by the user model.
+     *
+     * Matches against runtime attributes, $fillable, and $casts (Laravel's
+     * default User stub declares `email_verified_at` via $casts only).
+     * Models holding the column but declaring it nowhere should add it to
+     * $fillable or $casts to opt in.
      */
     protected function modelHasAttribute(object $user, string $attribute): bool
     {
@@ -175,12 +179,11 @@ trait FirebaseAuthenticable
             return true;
         }
 
-        try {
-            return Schema::connection($user->getConnectionName())
-                ->hasColumn($user->getTable(), $attribute);
-        } catch (\Throwable $e) {
-            return false;
+        if (array_key_exists($attribute, $user->getCasts())) {
+            return true;
         }
+
+        return false;
     }
 
     /**

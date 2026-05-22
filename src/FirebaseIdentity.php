@@ -47,8 +47,12 @@ class FirebaseIdentity extends Authenticatable
 
     /**
      * Resolve a stateless identity from verified token claims.
+     *
+     * Microservice mode has no database, so this never returns null —
+     * the `?object` return type is kept only for signature parity with
+     * the trait method it overrides.
      */
-    public function resolveByClaims(array $claims): object
+    public function resolveByClaims(array $claims): ?object
     {
         $resolveBy = $this->getFirebaseResolveBy();
 
@@ -73,20 +77,11 @@ class FirebaseIdentity extends Authenticatable
     }
 
     /**
-     * Stateless identities have no schema; treat fillable + dynamic
-     * attributes as the available columns.
+     * Stateless identities have no schema. With `$guarded = []` every claim
+     * is fair game, so we always allow setting the verification column.
      */
     protected function modelHasAttribute(object $user, string $attribute): bool
     {
-        if (array_key_exists($attribute, $user->getAttributes())) {
-            return true;
-        }
-
-        if (in_array($attribute, $user->getFillable(), true)) {
-            return true;
-        }
-
-        // FirebaseIdentity allows arbitrary attributes — let the caller set it.
-        return $user->getGuarded() === [];
+        return true;
     }
 }

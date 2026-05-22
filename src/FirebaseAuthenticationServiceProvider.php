@@ -2,10 +2,10 @@
 
 namespace Firevel\FirebaseAuthentication;
 
-use Auth;
 use Firevel\FirebaseAuthentication\Contracts\TokenVerifier;
 use Illuminate\Auth\RequestGuard;
 use Illuminate\Foundation\Support\Providers\AuthServiceProvider as ServiceProvider;
+use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\Route;
 use Kreait\Firebase\JWT\IdTokenVerifier;
