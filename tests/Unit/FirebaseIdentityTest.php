@@ -136,13 +136,24 @@ class FirebaseIdentityTest extends TestCase
     }
 
     #[Test]
-    public function it_works_with_anonymous_users()
+    public function it_rejects_anonymous_users_by_default()
     {
         $claims = [
             'sub' => 'anonymous-123',
-            'firebase' => [
-                'sign_in_provider' => 'anonymous',
-            ],
+            'firebase' => ['sign_in_provider' => 'anonymous'],
+        ];
+
+        $this->assertNull((new FirebaseIdentity)->resolveByClaims($claims));
+    }
+
+    #[Test]
+    public function it_supports_anonymous_users_when_allow_anonymous_is_enabled()
+    {
+        config(['firebase-authentication.allow_anonymous' => true]);
+
+        $claims = [
+            'sub' => 'anonymous-123',
+            'firebase' => ['sign_in_provider' => 'anonymous'],
         ];
 
         $identity = (new FirebaseIdentity)->resolveByClaims($claims);

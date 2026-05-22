@@ -467,6 +467,7 @@ After publishing the config with `php artisan vendor:publish --tag=firebase-auth
 | `token_cookie` | `null` (falls back to `bearer_token`) | Cookie name read by the legacy `AddAccessTokenFromCookie` middleware. |
 | `leeway` | `null` | Seconds of clock skew tolerated when verifying tokens. Set to a small value like `30` if you see sporadic "token used before issued" errors. |
 | `auto_create_users` | `true` | Set to `false` to reject verified tokens whose subject has no matching DB row (invite-only flows). `resolveByClaims()` returns `null` instead of creating. |
+| `allow_anonymous` | `false` | Whether to accept Firebase anonymous sign-ins. Rejected by default; enable only if your app deliberately supports anonymous users. |
 | `email_verification.enabled` | `true` | Sync the `email_verified` claim to a timestamp column on the user model. |
 | `email_verification.column` | `email_verified_at` | Which column receives the timestamp. Only set if currently null — never overwrites an existing value. |
 | `cache.store` | `null` | Laravel cache store name (e.g. `'redis'`). When set, the package shares the public-key cache via that store. When null, a local `FilesystemAdapter` is used. |
@@ -609,7 +610,13 @@ Route::middleware('auth:api')->get('/profile', fn (Request $request) => $request
 
 ### Anonymous Users
 
-Firebase supports [anonymous authentication](https://firebase.google.com/docs/auth/web/anonymous-auth) — users that sign in without credentials. Use `isAnonymous()` to gate features:
+Firebase supports [anonymous authentication](https://firebase.google.com/docs/auth/web/anonymous-auth) — users that sign in without credentials.
+
+> ⚠️ **Anonymous sign-in is rejected by default.** Anonymous tokens carry no email or name, can be issued unbounded, and are usually not what an authenticated route expects. Set `firebase-authentication.allow_anonymous` to `true` to accept them.
+
+When enabled, you'll also typically need to:
+1. Make `email` and `name` nullable on your `users` table — anonymous tokens carry neither.
+2. Decide where to gate features per-route using `$user->isAnonymous()`:
 
 ```php
 $user = auth()->user();

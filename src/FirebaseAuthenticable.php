@@ -63,7 +63,8 @@ trait FirebaseAuthenticable
      * Resolve (and optionally create) a User from verified token claims.
      *
      * Returns null when:
-     * - the configured resolve key is missing or empty in the claims, or
+     * - the configured resolve key is missing or empty in the claims,
+     * - the claims describe an anonymous user and `allow_anonymous` is off, or
      * - auto-creation is disabled and no matching user exists.
      */
     public function resolveByClaims(array $claims): ?object
@@ -77,6 +78,10 @@ trait FirebaseAuthenticable
         }
 
         if (empty($claims[$claimKey])) {
+            return null;
+        }
+
+        if ($this->isAnonymousClaim($claims) && ! config('firebase-authentication.allow_anonymous', false)) {
             return null;
         }
 
@@ -259,10 +264,15 @@ trait FirebaseAuthenticable
      */
     public function isAnonymous()
     {
-        $claims = $this->getClaims();
+        return $this->isAnonymousClaim($this->getClaims());
+    }
 
-        return isset($claims['firebase']['sign_in_provider'])
-            && $claims['firebase']['sign_in_provider'] === 'anonymous';
+    /**
+     * Whether the given claims describe a Firebase anonymous sign-in.
+     */
+    protected function isAnonymousClaim(array $claims): bool
+    {
+        return ($claims['firebase']['sign_in_provider'] ?? null) === 'anonymous';
     }
 
     /**

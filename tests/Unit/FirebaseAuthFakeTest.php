@@ -65,8 +65,20 @@ class FirebaseAuthFakeTest extends TestCase
     }
 
     #[Test]
-    public function acting_as_anonymous_marks_user_as_anonymous()
+    public function acting_as_anonymous_is_rejected_by_default()
     {
+        FirebaseAuth::actingAsAnonymous('anon-uid-1');
+
+        $this->withHeader('Authorization', 'Bearer anything')
+            ->getJson('/_test/me')
+            ->assertUnauthorized();
+    }
+
+    #[Test]
+    public function acting_as_anonymous_authenticates_when_allow_anonymous_is_enabled()
+    {
+        config(['firebase-authentication.allow_anonymous' => true]);
+
         FirebaseAuth::actingAsAnonymous('anon-uid-1');
 
         $this->withHeader('Authorization', 'Bearer anything')

@@ -59,6 +59,24 @@ return [
 
     /*
     |--------------------------------------------------------------------------
+    | Allow Anonymous Sign-In
+    |--------------------------------------------------------------------------
+    |
+    | Firebase supports anonymous authentication. By default, this package
+    | rejects tokens whose `firebase.sign_in_provider` is `anonymous` —
+    | anonymous identities have no email/name, can be created unbounded, and
+    | are usually not what an authenticated route expects.
+    |
+    | Set this to true if your app deliberately supports anonymous users.
+    | You'll likely also need to make `email`/`name` nullable on the users
+    | table, since anonymous tokens carry neither claim.
+    |
+    */
+
+    'allow_anonymous' => false,
+
+    /*
+    |--------------------------------------------------------------------------
     | Email Verification Sync
     |--------------------------------------------------------------------------
     |

@@ -67,6 +67,10 @@ class FirebaseIdentity extends Authenticatable
             return null;
         }
 
+        if ($this->isAnonymousClaim($claims) && ! config('firebase-authentication.allow_anonymous', false)) {
+            return null;
+        }
+
         $attributes = $this->transformClaims($claims);
         $attributes[$modelAttribute] = (string) $claims[$claimKey];
 
