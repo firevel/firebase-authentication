@@ -11,5 +11,6 @@ class FirebaseUserUpdated
     public function __construct(
         public readonly object $user,
         public readonly array $claims,
-    ) {}
+    ) {
+    }
 }

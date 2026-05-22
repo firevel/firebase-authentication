@@ -20,7 +20,7 @@ class AddAccessTokenFromCookie
                 ?? 'bearer_token';
             $token = $request->cookies->get($tokenCookie);
             if (! empty($token)) {
-                $request->headers->add(['Authorization' => 'Bearer ' . $token]);
+                $request->headers->add(['Authorization' => 'Bearer '.$token]);
             }
         }
 

@@ -13,7 +13,8 @@ class FirebaseSessionController extends Controller
 {
     public function __construct(
         protected IdTokenVerifier $verifier
-    ) {}
+    ) {
+    }
 
     /**
      * Exchange a Firebase ID token for an authenticated Laravel session.
@@ -37,7 +38,7 @@ class FirebaseSessionController extends Controller
         $modelClass = config("auth.providers.{$providerName}.model");
 
         if (empty($modelClass)) {
-            return response()->json(['error' => 'No user provider configured for guard [' . $guard . '].'], 500);
+            return response()->json(['error' => 'No user provider configured for guard ['.$guard.'].'], 500);
         }
 
         $user = app($modelClass)->resolveByClaims($firebaseToken->payload());

@@ -134,7 +134,9 @@ class FirebaseSessionControllerTest extends TestCase
     {
         $tokenStub = new class($payload)
         {
-            public function __construct(private array $payload) {}
+            public function __construct(private array $payload)
+            {
+            }
 
             public function payload(): array
             {
