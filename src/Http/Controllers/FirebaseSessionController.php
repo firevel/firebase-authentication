@@ -3,6 +3,7 @@
 namespace Firevel\FirebaseAuthentication\Http\Controllers;
 
 use Firevel\FirebaseAuthentication\Contracts\TokenVerifier;
+use Illuminate\Contracts\Auth\StatefulGuard;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Routing\Controller;
@@ -13,8 +14,7 @@ class FirebaseSessionController extends Controller
 {
     public function __construct(
         protected TokenVerifier $verifier
-    ) {
-    }
+    ) {}
 
     /**
      * Exchange a Firebase ID token for an authenticated Laravel session.
@@ -38,7 +38,7 @@ class FirebaseSessionController extends Controller
         $modelClass = config("auth.providers.{$providerName}.model");
 
         if (empty($modelClass)) {
-            return response()->json(['error' => 'No user provider configured for guard ['.$guard.'].'], 500);
+            return response()->json(['error' => 'No user provider configured for guard [' . $guard . '].'], 500);
         }
 
         $user = app($modelClass)->resolveByClaims($firebaseToken->payload());
@@ -47,7 +47,15 @@ class FirebaseSessionController extends Controller
             return response()->json(['error' => 'No matching user account.'], 401);
         }
 
-        Auth::guard($guard)->login($user);
+        $authGuard = Auth::guard($guard);
+
+        if (! $authGuard instanceof StatefulGuard) {
+            return response()->json([
+                'error' => 'Guard [' . $guard . '] does not support session login. Set firebase-authentication.session.guard to a guard using the "session" driver.',
+            ], 500);
+        }
+
+        $authGuard->login($user);
         $request->session()->regenerate();
 
         return response()->json(['authenticated' => true]);
