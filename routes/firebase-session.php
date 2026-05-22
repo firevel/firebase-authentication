@@ -8,5 +8,5 @@ $prefix = trim(config('firebase-authentication.session.prefix', 'auth/firebase')
 Route::post($prefix, [FirebaseSessionController::class, 'login'])
     ->name('firebase.session.login');
 
-Route::post($prefix.'/logout', [FirebaseSessionController::class, 'logout'])
+Route::post($prefix . '/logout', [FirebaseSessionController::class, 'logout'])
     ->name('firebase.session.logout');

@@ -4,6 +4,7 @@ namespace Firevel\FirebaseAuthentication;
 
 use Firevel\FirebaseAuthentication\Contracts\TokenVerifier;
 use Illuminate\Http\Request;
+use Kreait\Firebase\JWT\Error\IdTokenVerificationFailed;
 
 class FirebaseGuard
 {
@@ -41,7 +42,7 @@ class FirebaseGuard
 
             return $user->setFirebaseAuthenticationToken($token);
         } catch (\Exception $e) {
-            if ($e instanceof \Kreait\Firebase\JWT\Error\IdTokenVerificationFailed) {
+            if ($e instanceof IdTokenVerificationFailed) {
                 if (str_contains($e->getMessage(), 'token is expired')) {
                     return;
                 }

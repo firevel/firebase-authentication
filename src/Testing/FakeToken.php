@@ -10,8 +10,7 @@ class FakeToken implements Token
         private readonly array $payload,
         private readonly string $raw = 'fake-token',
         private readonly array $headers = ['alg' => 'fake', 'typ' => 'JWT'],
-    ) {
-    }
+    ) {}
 
     public function headers(): array
     {

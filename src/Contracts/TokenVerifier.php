@@ -3,6 +3,7 @@
 namespace Firevel\FirebaseAuthentication\Contracts;
 
 use Kreait\Firebase\JWT\Contract\Token;
+use Kreait\Firebase\JWT\Error\IdTokenVerificationFailed;
 
 /**
  * Verifies a Firebase ID token and returns the decoded token contract.
@@ -16,7 +17,7 @@ interface TokenVerifier
     /**
      * Verify a Firebase ID token using strict timing checks.
      *
-     * @throws \Kreait\Firebase\JWT\Error\IdTokenVerificationFailed
+     * @throws IdTokenVerificationFailed
      */
     public function verifyIdToken(string $token): Token;
 
@@ -24,7 +25,7 @@ interface TokenVerifier
      * Verify a Firebase ID token, tolerating a few seconds of clock skew
      * on the iat/exp/auth_time claims.
      *
-     * @throws \Kreait\Firebase\JWT\Error\IdTokenVerificationFailed
+     * @throws IdTokenVerificationFailed
      */
     public function verifyIdTokenWithLeeway(string $token, int $leewayInSeconds): Token;
 }
