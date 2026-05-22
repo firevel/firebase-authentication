@@ -92,6 +92,12 @@ Stick with [Option A](#option-a-keep-v2-behavior-no-schema-change). It's a fully
 
 ### FirebaseIdentity (microservice mode)
 
-In v3.0.0, `FirebaseIdentity` still used the Firebase UID as `id`. As of the next release this changes: the Firebase UID lives on `$identity->firebase_id`, mirroring the `User` model. See the Unreleased section of [CHANGELOG.md](CHANGELOG.md) for details and the [Microservice Setup](README.md#microservice-setup-without-database) section of the README for the new pattern (and how to expose `user_id` / `organization_id` from custom claims).
+In v2, `FirebaseIdentity` stored the Firebase UID on `$identity->id`. **In v3 the Firebase UID lives on `$identity->firebase_id`**, mirroring the `User` model — so `$request->user()->firebase_id` means the same thing whether the guard is DB-backed or stateless.
 
-The `picture` → `avatar_url` claim rename from v2 → v3 still applies.
+What this means for consumers:
+
+- **Replace `$identity->id` with `$identity->firebase_id`** everywhere the Firebase UID was being read — logs, request context, cross-service references, and any code that called `$identity->getAuthIdentifier()` expecting the UID. `getAuthIdentifierName()` now returns `'firebase_id'` and `getAuthIdentifier()` returns `$this->firebase_id`.
+- **`$identity->id` is unset by default** — by design, to avoid silent fallback to the Firebase UID re-creating the ambiguity this rename was meant to fix.
+- If you want `$identity->id` to be an integer that matches `users.id` in your core service, have the core service mint a Firebase custom claim (e.g. `user_id`) via the Admin SDK, then subclass `FirebaseIdentity` and set `protected $firebaseClaimsMapping = ['id' => 'user_id', ...]`. See [Microservice Setup → Exposing custom claims](README.md#exposing-user_id--organization_id-from-custom-claims).
+
+The `picture` → `avatar_url` claim rename from v2 → v3 also applies to `FirebaseIdentity`.
