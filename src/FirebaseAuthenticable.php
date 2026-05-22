@@ -2,6 +2,11 @@
 
 namespace Firevel\FirebaseAuthentication;
 
+use Firevel\FirebaseAuthentication\Events\FirebaseUserCreated;
+use Firevel\FirebaseAuthentication\Events\FirebaseUserResolved;
+use Firevel\FirebaseAuthentication\Events\FirebaseUserUpdated;
+use Illuminate\Support\Facades\Schema;
+
 trait FirebaseAuthenticable
 {
     /**
@@ -10,18 +15,6 @@ trait FirebaseAuthenticable
      * @var array
      */
     protected $claims;
-
-    /**
-     * Initialize the Firebase authentication trait for the instance.
-     *
-     * Firebase UIDs are strings, so non-incrementing string keys are the sensible default.
-     * To use auto-incrementing integer keys, override getIncrementing() / getKeyType() on the model.
-     */
-    public function initializeFirebaseAuthenticable(): void
-    {
-        $this->incrementing = false;
-        $this->keyType = 'string';
-    }
 
     /**
      * Firebase token.
@@ -35,8 +28,6 @@ trait FirebaseAuthenticable
      *
      * Override this method in your User model to customize claim mapping.
      * Format: ['model_attribute' => 'claim_key']
-     *
-     * @return array
      */
     protected function getFirebaseClaimsMapping(): array
     {
@@ -47,7 +38,7 @@ trait FirebaseAuthenticable
         return [
             'email' => 'email',
             'name' => 'name',
-            'picture' => 'picture',
+            'avatar_url' => 'picture',
         ];
     }
 
@@ -59,8 +50,6 @@ trait FirebaseAuthenticable
      * Formats:
      * - ['claim_key' => 'model_attribute'] - e.g., ['sub' => 'id'] or ['sub' => 'firebase_uid']
      * - 'attribute_name' - e.g., 'email' (uses same name for claim and model attribute)
-     *
-     * @return array|string
      */
     protected function getFirebaseResolveBy(): array|string
     {
@@ -68,19 +57,19 @@ trait FirebaseAuthenticable
             return $this->firebaseResolveBy;
         }
 
-        return ['sub' => 'id'];
+        return ['sub' => 'firebase_id'];
     }
 
     /**
-     * Get User by claim.
+     * Resolve (and optionally create) a User from verified token claims.
      *
-     * @return self
+     * Returns null when auto-creation is disabled and no matching user
+     * exists in the database.
      */
-    public function resolveByClaims(array $claims): object
+    public function resolveByClaims(array $claims): ?object
     {
         $resolveBy = $this->getFirebaseResolveBy();
 
-        // Parse firebaseResolveBy to get claim key
         if (is_string($resolveBy)) {
             $claimKey = $resolveBy;
         } else {
@@ -90,43 +79,108 @@ trait FirebaseAuthenticable
         $id = (string) $claims[$claimKey];
         $attributes = $this->transformClaims($claims);
 
-        return $this->updateOrCreateUser($id, $attributes)->setClaims($claims);
+        $user = $this->updateOrCreateUser($id, $attributes, $claims);
+
+        if ($user === null) {
+            return null;
+        }
+
+        $user->setClaims($claims);
+
+        event(new FirebaseUserResolved($user, $claims));
+
+        return $user;
     }
 
     /**
      * Update or create user.
      *
      * @param  int|string  $id
-     * @return self
      */
-    public function updateOrCreateUser($id, array $attributes): object
+    public function updateOrCreateUser($id, array $attributes, array $claims = []): ?object
     {
         $resolveBy = $this->getFirebaseResolveBy();
+        $modelAttribute = is_string($resolveBy) ? $resolveBy : array_values($resolveBy)[0];
 
-        // Parse firebaseResolveBy to get model attribute
-        if (is_string($resolveBy)) {
-            $modelAttribute = $resolveBy;
-        } else {
-            $modelAttribute = array_values($resolveBy)[0];
-        }
-
-        // Try to find existing user by the configured attribute
         if ($user = $this->where($modelAttribute, $id)->first()) {
             $user->fill($attributes);
+            $this->syncEmailVerification($user, $claims);
 
             if ($user->isDirty()) {
                 $user->save();
+                event(new FirebaseUserUpdated($user, $claims));
             }
 
             return $user;
         }
 
-        // Create new user
+        if (! config('firebase-authentication.auto_create_users', true)) {
+            return null;
+        }
+
         $user = $this->fill($attributes);
         $user->$modelAttribute = $id;
+        $this->syncEmailVerification($user, $claims);
         $user->save();
 
+        event(new FirebaseUserCreated($user, $claims));
+
         return $user;
+    }
+
+    /**
+     * Apply Firebase's `email_verified` claim to the user model.
+     *
+     * Sets the configured timestamp column (default `email_verified_at`)
+     * to now() when the claim is truthy and the column is currently empty.
+     * Existing verification timestamps are never overwritten.
+     */
+    protected function syncEmailVerification(object $user, array $claims): void
+    {
+        if (empty($claims)) {
+            return;
+        }
+
+        if (! config('firebase-authentication.email_verification.enabled', true)) {
+            return;
+        }
+
+        if (empty($claims['email_verified'])) {
+            return;
+        }
+
+        $column = config('firebase-authentication.email_verification.column', 'email_verified_at');
+
+        if (! $this->modelHasAttribute($user, $column)) {
+            return;
+        }
+
+        if (! empty($user->{$column})) {
+            return;
+        }
+
+        $user->{$column} = $user->freshTimestamp();
+    }
+
+    /**
+     * Check whether the user model exposes a given attribute/column.
+     */
+    protected function modelHasAttribute(object $user, string $attribute): bool
+    {
+        if (array_key_exists($attribute, $user->getAttributes())) {
+            return true;
+        }
+
+        if (in_array($attribute, $user->getFillable(), true)) {
+            return true;
+        }
+
+        try {
+            return Schema::connection($user->getConnectionName())
+                ->hasColumn($user->getTable(), $attribute);
+        } catch (\Throwable $e) {
+            return false;
+        }
     }
 
     /**
@@ -171,7 +225,6 @@ trait FirebaseAuthenticable
     /**
      * Set claims from JWT token.
      *
-     * @param  array  $claims
      * @return self
      */
     public function setClaims(array $claims)
@@ -231,17 +284,17 @@ trait FirebaseAuthenticable
      */
     public function getAuthPassword()
     {
-        throw new \Exception('No password support for Firebase Users');
+        return '';
     }
 
     /**
      * Get the token value for the "remember me" session.
      *
-     * @return string
+     * @return string|null
      */
     public function getRememberToken()
     {
-        throw new \Exception('No remember token support for Firebase Users');
+        return null;
     }
 
     /**
@@ -252,16 +305,16 @@ trait FirebaseAuthenticable
      */
     public function setRememberToken($value)
     {
-        throw new \Exception('No remember token support for Firebase User');
+        // no-op: Firebase auth doesn't use remember tokens
     }
 
     /**
      * Get the column name for the "remember me" token.
      *
-     * @return string
+     * @return string|null
      */
     public function getRememberTokenName()
     {
-        throw new \Exception('No remember token support for Firebase User');
+        return null;
     }
 }

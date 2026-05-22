@@ -5,8 +5,12 @@ namespace Firevel\FirebaseAuthentication;
 use Auth;
 use Illuminate\Auth\RequestGuard;
 use Illuminate\Foundation\Support\Providers\AuthServiceProvider as ServiceProvider;
+use Illuminate\Support\Facades\Cache;
+use Illuminate\Support\Facades\Route;
 use Kreait\Firebase\JWT\IdTokenVerifier;
+use Psr\Cache\CacheItemPoolInterface;
 use Symfony\Component\Cache\Adapter\FilesystemAdapter;
+use Symfony\Component\Cache\Adapter\Psr16Adapter;
 
 class FirebaseAuthenticationServiceProvider extends ServiceProvider
 {
@@ -19,6 +23,16 @@ class FirebaseAuthenticationServiceProvider extends ServiceProvider
     {
         $this->registerPolicies();
 
+        if ($this->app->runningInConsole()) {
+            $this->publishes([
+                __DIR__ . '/../database/migrations/add_firebase_columns_to_users_table.php.stub' => database_path('migrations/' . date('Y_m_d_His') . '_add_firebase_columns_to_users_table.php'),
+            ], 'firebase-authentication-migrations');
+
+            $this->publishes([
+                __DIR__ . '/../config/firebase-authentication.php' => config_path('firebase-authentication.php'),
+            ], 'firebase-authentication-config');
+        }
+
         Auth::extend('firebase', function ($app, $name, array $config) {
             $provider = $config['provider'] ?? 'users';
             $model = config("auth.providers.{$provider}.model");
@@ -27,6 +41,11 @@ class FirebaseAuthenticationServiceProvider extends ServiceProvider
                 return app(FirebaseGuard::class)->user($request, $model);
             }, $app['request']);
         });
+
+        if (config('firebase-authentication.session.enabled', true)) {
+            Route::middleware(config('firebase-authentication.session.middleware', 'web'))
+                ->group(__DIR__ . '/../routes/firebase-session.php');
+        }
     }
 
     /**
@@ -36,19 +55,36 @@ class FirebaseAuthenticationServiceProvider extends ServiceProvider
      */
     public function register()
     {
+        $this->mergeConfigFrom(
+            __DIR__ . '/../config/firebase-authentication.php',
+            'firebase-authentication'
+        );
+
         $this->app->singleton(IdTokenVerifier::class, function ($app) {
-            $project = config('firebase.project_id', env('GOOGLE_CLOUD_PROJECT'));
+            $project = config('firebase-authentication.project_id')
+                ?? config('firebase.project_id')
+                ?? env('GOOGLE_CLOUD_PROJECT');
 
             if (empty($project)) {
                 throw new \Exception('Missing GOOGLE_CLOUD_PROJECT env variable.');
             }
-            $cache = new FilesystemAdapter(
-                // a string used as the subdirectory of the root cache directory, where cache
-                // items will be stored
-                $namespace = 'firebase-token-cache'
-            );
 
-            return IdTokenVerifier::createWithProjectIdAndCache($project, $cache);
+            return IdTokenVerifier::createWithProjectIdAndCache($project, $this->resolveCache());
         });
+    }
+
+    protected function resolveCache(): CacheItemPoolInterface
+    {
+        $store = config('firebase-authentication.cache.store');
+
+        if (! empty($store)) {
+            return new Psr16Adapter(Cache::store($store));
+        }
+
+        return new FilesystemAdapter(
+            'firebase-token-cache',
+            0,
+            config('firebase-authentication.cache.path') ?: null
+        );
     }
 }

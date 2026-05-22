@@ -37,13 +37,17 @@ class FirebaseGuard
         }
 
         try {
-            $firebaseToken = $this->verifier->verifyIdToken($token);
+            $firebaseToken = $this->verifyToken($token);
 
             $model = $modelClass ?? config('auth.providers.users.model');
 
-            return app($model)
-                ->resolveByClaims($firebaseToken->payload())
-                ->setFirebaseAuthenticationToken($token);
+            $user = app($model)->resolveByClaims($firebaseToken->payload());
+
+            if ($user === null) {
+                return;
+            }
+
+            return $user->setFirebaseAuthenticationToken($token);
         } catch (\Exception $e) {
             if ($e instanceof \Kreait\Firebase\JWT\Error\IdTokenVerificationFailed) {
                 if (str_contains($e->getMessage(), 'token is expired')) {
@@ -57,5 +61,19 @@ class FirebaseGuard
 
             return;
         }
+    }
+
+    /**
+     * Verify a Firebase ID token, honoring the configured clock-skew leeway.
+     */
+    protected function verifyToken(string $token)
+    {
+        $leeway = (int) config('firebase-authentication.leeway', 0);
+
+        if ($leeway > 0) {
+            return $this->verifier->verifyIdTokenWithLeeway($token, $leeway);
+        }
+
+        return $this->verifier->verifyIdToken($token);
     }
 }

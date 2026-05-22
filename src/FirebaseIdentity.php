@@ -2,6 +2,7 @@
 
 namespace Firevel\FirebaseAuthentication;
 
+use Firevel\FirebaseAuthentication\Events\FirebaseUserResolved;
 use Illuminate\Foundation\Auth\User as Authenticatable;
 
 class FirebaseIdentity extends Authenticatable
@@ -11,9 +12,21 @@ class FirebaseIdentity extends Authenticatable
     /**
      * Indicates if the IDs are auto-incrementing.
      *
+     * No database is used in microservice mode, so the Firebase UID is the identifier.
+     *
      * @var bool
      */
     public $incrementing = false;
+
+    /**
+     * Resolve the Firebase UID directly into the `id` attribute.
+     *
+     * Microservices have no users table, so $identity->id holds the Firebase UID
+     * for use as the auth identifier.
+     *
+     * @var array|string
+     */
+    protected $firebaseResolveBy = ['sub' => 'id'];
 
     /**
      * The attributes that aren't mass assignable.
@@ -33,15 +46,12 @@ class FirebaseIdentity extends Authenticatable
     }
 
     /**
-     * Get User by claim.
-     *
-     * @return self
+     * Resolve a stateless identity from verified token claims.
      */
     public function resolveByClaims(array $claims): object
     {
         $resolveBy = $this->getFirebaseResolveBy();
 
-        // Parse firebaseResolveBy to get claim key and model attribute
         if (is_string($resolveBy)) {
             $claimKey = $resolveBy;
             $modelAttribute = $resolveBy;
@@ -53,6 +63,30 @@ class FirebaseIdentity extends Authenticatable
         $attributes = $this->transformClaims($claims);
         $attributes[$modelAttribute] = (string) $claims[$claimKey];
 
-        return $this->fill($attributes)->setClaims($claims);
+        $identity = $this->fill($attributes);
+        $this->syncEmailVerification($identity, $claims);
+        $identity->setClaims($claims);
+
+        event(new FirebaseUserResolved($identity, $claims));
+
+        return $identity;
+    }
+
+    /**
+     * Stateless identities have no schema; treat fillable + dynamic
+     * attributes as the available columns.
+     */
+    protected function modelHasAttribute(object $user, string $attribute): bool
+    {
+        if (array_key_exists($attribute, $user->getAttributes())) {
+            return true;
+        }
+
+        if (in_array($attribute, $user->getFillable(), true)) {
+            return true;
+        }
+
+        // FirebaseIdentity allows arbitrary attributes — let the caller set it.
+        return $user->getGuarded() === [];
     }
 }
