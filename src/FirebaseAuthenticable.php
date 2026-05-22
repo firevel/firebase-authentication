@@ -77,7 +77,9 @@ trait FirebaseAuthenticable
             $claimKey = array_key_first($resolveBy);
         }
 
-        if (empty($claims[$claimKey])) {
+        $claimValue = $this->getClaimValue($claims, $claimKey);
+
+        if ($claimValue === null || $claimValue === '') {
             return null;
         }
 
@@ -85,7 +87,7 @@ trait FirebaseAuthenticable
             return null;
         }
 
-        $id = (string) $claims[$claimKey];
+        $id = (string) $claimValue;
         $attributes = $this->transformClaims($claims);
 
         $user = $this->updateOrCreateUser($id, $attributes, $claims);
@@ -198,18 +200,45 @@ trait FirebaseAuthenticable
 
     /**
      * Transform claims to attributes.
+     *
+     * Claim keys may use dot notation to read nested values
+     * (e.g. `'organization_id' => 'organization.id'`).
      */
     public function transformClaims(array $claims): array
     {
         $attributes = [];
 
         foreach ($this->getFirebaseClaimsMapping() as $attribute => $claimKey) {
-            if (! empty($claims[$claimKey])) {
-                $attributes[$attribute] = (string) $claims[$claimKey];
+            $value = $this->getClaimValue($claims, $claimKey);
+
+            if ($value === null || $value === '') {
+                continue;
             }
+
+            $attributes[$attribute] = (string) $value;
         }
 
         return $attributes;
+    }
+
+    /**
+     * Read a claim value, supporting dot notation for nested claims.
+     *
+     * `'organization.id'` resolves to `$claims['organization']['id']`.
+     * A literal top-level key wins over the dotted path if both exist —
+     * Firebase custom claims occasionally include literal `.` in keys.
+     */
+    protected function getClaimValue(array $claims, string $claimKey): mixed
+    {
+        if (array_key_exists($claimKey, $claims)) {
+            return $claims[$claimKey];
+        }
+
+        if (! str_contains($claimKey, '.')) {
+            return null;
+        }
+
+        return data_get($claims, $claimKey);
     }
 
     /**

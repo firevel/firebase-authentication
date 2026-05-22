@@ -6,6 +6,8 @@ use Firevel\FirebaseAuthentication\FirebaseIdentity;
 use Firevel\FirebaseAuthentication\Tests\Fixtures\FirebaseIdentityByEmail;
 use Firevel\FirebaseAuthentication\Tests\Fixtures\FirebaseIdentityWithCustomMapping;
 use Firevel\FirebaseAuthentication\Tests\Fixtures\FirebaseIdentityWithCustomUid;
+use Firevel\FirebaseAuthentication\Tests\Fixtures\FirebaseIdentityWithNestedClaims;
+use Firevel\FirebaseAuthentication\Tests\Fixtures\FirebaseIdentityWithUserIdClaim;
 use Firevel\FirebaseAuthentication\Tests\TestCase;
 use PHPUnit\Framework\Attributes\Test;
 
@@ -59,7 +61,7 @@ class FirebaseIdentityTest extends TestCase
         $identity = (new FirebaseIdentity)->resolveByClaims($claims);
 
         $this->assertInstanceOf(FirebaseIdentity::class, $identity);
-        $this->assertEquals('microservice-user-123', $identity->id);
+        $this->assertEquals('microservice-user-123', $identity->firebase_id);
         $this->assertEquals('microservice@example.com', $identity->email);
         $this->assertEquals('Microservice User', $identity->name);
         $this->assertEquals('https://example.com/photo.jpg', $identity->avatar_url);
@@ -129,7 +131,7 @@ class FirebaseIdentityTest extends TestCase
 
         $identity = (new FirebaseIdentity)->resolveByClaims($claims);
 
-        $this->assertEquals('fill-test-123', $identity->id);
+        $this->assertEquals('fill-test-123', $identity->firebase_id);
         $this->assertEquals('fill@example.com', $identity->email);
         $this->assertEquals('Fill Test User', $identity->name);
         $this->assertEquals('https://example.com/fill.jpg', $identity->avatar_url);
@@ -159,7 +161,7 @@ class FirebaseIdentityTest extends TestCase
         $identity = (new FirebaseIdentity)->resolveByClaims($claims);
 
         $this->assertTrue($identity->isAnonymous());
-        $this->assertEquals('anonymous-123', $identity->id);
+        $this->assertEquals('anonymous-123', $identity->firebase_id);
     }
 
     #[Test]
@@ -209,7 +211,7 @@ class FirebaseIdentityTest extends TestCase
 
         $identity = (new FirebaseIdentity)->resolveByClaims($claims);
 
-        $this->assertEquals('id', $identity->getAuthIdentifierName());
+        $this->assertEquals('firebase_id', $identity->getAuthIdentifierName());
         $this->assertEquals('auth-test-123', $identity->getAuthIdentifier());
     }
 
@@ -227,9 +229,65 @@ class FirebaseIdentityTest extends TestCase
 
         $identity = $identityClass->resolveByClaims($claims);
 
-        $this->assertEquals('mapping-test-123', $identity->id);
+        $this->assertEquals('mapping-test-123', $identity->firebase_id);
         $this->assertEquals('mapping@example.com', $identity->email);
         $this->assertEquals('Mapping Test User', $identity->name);
         $this->assertEquals('+1234567890', $identity->phone);
+    }
+
+    #[Test]
+    public function it_resolves_nested_claims_with_dot_notation()
+    {
+        $identityClass = new FirebaseIdentityWithNestedClaims;
+
+        $claims = [
+            'sub' => 'nested-test-123',
+            'email' => 'nested@example.com',
+            'organization' => [
+                'id' => 'org-42',
+                'name' => 'Acme',
+            ],
+        ];
+
+        $identity = $identityClass->resolveByClaims($claims);
+
+        $this->assertEquals('nested-test-123', $identity->firebase_id);
+        $this->assertEquals('org-42', $identity->organization_id);
+        $this->assertEquals('Acme', $identity->organization_name);
+    }
+
+    #[Test]
+    public function it_populates_id_from_custom_user_id_claim()
+    {
+        $identityClass = new FirebaseIdentityWithUserIdClaim;
+
+        $claims = [
+            'sub' => 'firebase-uid-xyz',
+            'user_id' => 42,
+            'email' => 'integer-id@example.com',
+        ];
+
+        $identity = $identityClass->resolveByClaims($claims);
+
+        $this->assertEquals('firebase-uid-xyz', $identity->firebase_id);
+        $this->assertEquals('42', $identity->id);
+        $this->assertEquals('integer-id@example.com', $identity->email);
+    }
+
+    #[Test]
+    public function it_skips_missing_nested_claims_without_error()
+    {
+        $identityClass = new FirebaseIdentityWithNestedClaims;
+
+        $claims = [
+            'sub' => 'no-org-123',
+            'email' => 'noorg@example.com',
+        ];
+
+        $identity = $identityClass->resolveByClaims($claims);
+
+        $this->assertEquals('no-org-123', $identity->firebase_id);
+        $this->assertNull($identity->organization_id);
+        $this->assertNull($identity->organization_name);
     }
 }

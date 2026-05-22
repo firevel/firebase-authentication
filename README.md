@@ -238,6 +238,8 @@ php artisan migrate
 
 For microservices that only need to verify authentication without storing user data, use the `FirebaseIdentity` model.
 
+`FirebaseIdentity` stores the Firebase UID on `$identity->firebase_id` — same shape as the `User` model — so `$request->user()->firebase_id` means the same thing across services. The model's `id` is intentionally unset by default; populate it from a custom claim only if you need integer-id parity with your core service (see [Exposing user_id / organization_id from custom claims](#exposing-user_id--organization_id-from-custom-claims)).
+
 #### 1. Update Authentication Configuration
 
 In `config/auth.php`, configure only the API guard:
@@ -281,6 +283,41 @@ Route::middleware('auth:api')->group(function () {
 - Lightweight and fast
 - Perfect for serverless deployments
 - User data available from JWT claims
+
+#### 3. Exposing `user_id` / `organization_id` from custom claims
+
+In most microservice setups you just need to know "who is calling" — `$identity->firebase_id` is enough, plus `$identity->getClaims()` for anything else on the token.
+
+When the core service mints Firebase custom claims (via the Admin SDK) carrying its own identifiers, you can expose them as attributes on the identity by subclassing `FirebaseIdentity` and customizing `$firebaseClaimsMapping`:
+
+```php
+namespace App\Auth;
+
+use Firevel\FirebaseAuthentication\FirebaseIdentity;
+
+class Identity extends FirebaseIdentity
+{
+    protected $firebaseClaimsMapping = [
+        'id'              => 'user_id',         // integer id minted by the core service
+        'organization_id' => 'organization.id', // nested claim via dot notation
+        'email'           => 'email',
+        'name'            => 'name',
+    ];
+}
+```
+
+Point the provider at your subclass instead of the package class:
+
+```php
+'providers' => [
+    'users' => [
+        'driver' => 'eloquent',
+        'model' => App\Auth\Identity::class,
+    ],
+],
+```
+
+Now `$request->user()->id` is the integer assigned by your core service and `$request->user()->organization_id` reflects the nested claim. If a claim is missing the attribute is simply not set — there is no silent fallback to the Firebase UID, so misconfigurations stay visible. For this to work the core service must put the matching claims on the token via the Firebase Admin SDK (e.g. `auth.setCustomUserClaims($uid, ['user_id' => 42, 'organization' => ['id' => 7]])`); without that, the microservice has no way to know those values.
 
 ### Multiple Guards
 
@@ -341,7 +378,7 @@ class RegisterController extends Controller
         $identity = $request->user(); // FirebaseIdentity instance
 
         $user = User::create([
-            'firebase_id' => $identity->id,
+            'firebase_id' => $identity->firebase_id,
             'email' => $identity->email,
             'name' => $identity->name,
         ]);
@@ -736,10 +773,11 @@ Controls how Firebase JWT claims are mapped to user model attributes. Define thi
 
 ```php
 protected $firebaseClaimsMapping = [
-    'email' => 'email',          // Model attribute => JWT claim key
+    'email' => 'email',                       // Model attribute => JWT claim key
     'name' => 'name',
-    'avatar_url' => 'picture',   // Firebase's `picture` claim → `avatar_url` column
-    'phone' => 'phone_number',   // Map phone_number claim to phone attribute
+    'avatar_url' => 'picture',                // Firebase's `picture` claim → `avatar_url` column
+    'phone' => 'phone_number',                // Map phone_number claim to phone attribute
+    'organization_id' => 'organization.id',   // Dot notation reads nested claims
 ];
 ```
 
@@ -747,6 +785,8 @@ protected $firebaseClaimsMapping = [
 - `email` → `email`
 - `name` → `name`
 - `avatar_url` → `picture` (Firebase's `picture` claim is stored on the `avatar_url` attribute)
+
+**Nested claims (dot notation):** claim keys may use `.` to drill into nested claim objects — e.g. `'organization_id' => 'organization.id'` resolves to `$claims['organization']['id']`. A literal top-level key always wins over the dotted path if both happen to exist on the token.
 
 #### `transformClaims(array $claims): array`
 

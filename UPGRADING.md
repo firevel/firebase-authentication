@@ -92,4 +92,6 @@ Stick with [Option A](#option-a-keep-v2-behavior-no-schema-change). It's a fully
 
 ### FirebaseIdentity (microservice mode)
 
-`FirebaseIdentity` still uses the Firebase UID as `id` (it has no database, so this is the natural choice). The only breaking change there is the `picture` claim now lands on `$identity->avatar_url` instead of `$identity->picture`.
+In v3.0.0, `FirebaseIdentity` still used the Firebase UID as `id`. As of the next release this changes: the Firebase UID lives on `$identity->firebase_id`, mirroring the `User` model. See the Unreleased section of [CHANGELOG.md](CHANGELOG.md) for details and the [Microservice Setup](README.md#microservice-setup-without-database) section of the README for the new pattern (and how to expose `user_id` / `organization_id` from custom claims).
+
+The `picture` → `avatar_url` claim rename from v2 → v3 still applies.

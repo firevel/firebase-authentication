@@ -19,14 +19,16 @@ class FirebaseIdentity extends Authenticatable
     public $incrementing = false;
 
     /**
-     * Resolve the Firebase UID directly into the `id` attribute.
+     * Resolve the Firebase UID into the `firebase_id` attribute.
      *
-     * Microservices have no users table, so $identity->id holds the Firebase UID
-     * for use as the auth identifier.
+     * Mirrors the default User model layout so $identity->firebase_id and
+     * $user->firebase_id mean the same thing across services. The stateless
+     * `id` attribute is left unset unless populated from a custom claim via
+     * $firebaseClaimsMapping (e.g. `'id' => 'user_id'`).
      *
      * @var array|string
      */
-    protected $firebaseResolveBy = ['sub' => 'id'];
+    protected $firebaseResolveBy = ['sub' => 'firebase_id'];
 
     /**
      * The attributes that aren't mass assignable.
@@ -63,7 +65,9 @@ class FirebaseIdentity extends Authenticatable
             $modelAttribute = array_values($resolveBy)[0];
         }
 
-        if (empty($claims[$claimKey])) {
+        $claimValue = $this->getClaimValue($claims, $claimKey);
+
+        if ($claimValue === null || $claimValue === '') {
             return null;
         }
 
@@ -72,7 +76,7 @@ class FirebaseIdentity extends Authenticatable
         }
 
         $attributes = $this->transformClaims($claims);
-        $attributes[$modelAttribute] = (string) $claims[$claimKey];
+        $attributes[$modelAttribute] = (string) $claimValue;
 
         $identity = $this->fill($attributes);
         $this->syncEmailVerification($identity, $claims);
@@ -90,5 +94,29 @@ class FirebaseIdentity extends Authenticatable
     protected function modelHasAttribute(object $user, string $attribute): bool
     {
         return true;
+    }
+
+    /**
+     * Use `firebase_id` as the auth identifier.
+     *
+     * Stateless identities have no database `id`; the Firebase UID is the
+     * stable identifier. Subclasses that populate `id` from a custom claim
+     * (e.g. `'id' => 'user_id'`) can override this to switch back to `id`.
+     *
+     * @return string
+     */
+    public function getAuthIdentifierName()
+    {
+        return 'firebase_id';
+    }
+
+    /**
+     * Get the Firebase UID as the auth identifier.
+     *
+     * @return mixed
+     */
+    public function getAuthIdentifier()
+    {
+        return $this->firebase_id;
     }
 }
