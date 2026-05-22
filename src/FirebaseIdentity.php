@@ -7,7 +7,7 @@ use Illuminate\Foundation\Auth\User as Authenticatable;
 
 class FirebaseIdentity extends Authenticatable
 {
-    use FirebaseAuthenticable;
+    use FirebaseAuthenticatable;
 
     /**
      * Indicates if the IDs are auto-incrementing.

@@ -2,12 +2,12 @@
 
 namespace Firevel\FirebaseAuthentication\Tests\Fixtures;
 
-use Firevel\FirebaseAuthentication\FirebaseAuthenticable;
+use Firevel\FirebaseAuthentication\FirebaseAuthenticatable;
 use Illuminate\Foundation\Auth\User as Authenticatable;
 
 class User extends Authenticatable
 {
-    use FirebaseAuthenticable;
+    use FirebaseAuthenticatable;
 
     protected $table = 'users';
 

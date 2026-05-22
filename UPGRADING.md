@@ -20,7 +20,7 @@ Pin the old defaults explicitly on your User model:
 ```php
 class User extends Authenticatable
 {
-    use FirebaseAuthenticable;
+    use FirebaseAuthenticatable;
 
     public $incrementing = false;
     protected $keyType = 'string';

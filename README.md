@@ -81,11 +81,11 @@ GOOGLE_CLOUD_PROJECT=your-firebase-project-id
 
 3. **Add trait to your User model**:
 ```php
-use Firevel\FirebaseAuthentication\FirebaseAuthenticable;
+use Firevel\FirebaseAuthentication\FirebaseAuthenticatable;
 
 class User extends Authenticatable
 {
-    use FirebaseAuthenticable;
+    use FirebaseAuthenticatable;
 
     protected $fillable = ['name', 'email', 'firebase_id', 'avatar_url'];
 
@@ -165,7 +165,7 @@ Modify `config/auth.php` to use the Firebase driver for API auth:
 
 #### 3. Update Your User Model
 
-Add the `FirebaseAuthenticable` trait to your User model:
+Add the `FirebaseAuthenticatable` trait to your User model:
 
 **Eloquent Example:**
 
@@ -174,13 +174,13 @@ Add the `FirebaseAuthenticable` trait to your User model:
 
 namespace App\Models;
 
-use Firevel\FirebaseAuthentication\FirebaseAuthenticable;
+use Firevel\FirebaseAuthentication\FirebaseAuthenticatable;
 use Illuminate\Foundation\Auth\User as Authenticatable;
 use Illuminate\Notifications\Notifiable;
 
 class User extends Authenticatable
 {
-    use Notifiable, FirebaseAuthenticable;
+    use Notifiable, FirebaseAuthenticatable;
 
     /**
      * The attributes that are mass assignable.
@@ -692,9 +692,11 @@ Token expiration is enforced automatically — verification fails on expired tok
 
 ## API Reference
 
-### FirebaseAuthenticable Trait
+### FirebaseAuthenticatable Trait
 
-Methods available on User models using the `FirebaseAuthenticable` trait:
+Methods available on User models using the `FirebaseAuthenticatable` trait:
+
+> The legacy spelling `FirebaseAuthenticable` (no second `t`) still works in v3 as a deprecated alias — existing models that wrote `use FirebaseAuthenticable;` keep working unchanged. New code should prefer `FirebaseAuthenticatable`, which matches Laravel's `Authenticatable` contract.
 
 #### `resolveByClaims(array $claims): object`
 
@@ -823,7 +825,7 @@ If you want to match Firebase users by email rather than by Firebase UID (e.g. y
 // App/Models/User.php
 class User extends Authenticatable
 {
-    use FirebaseAuthenticable;
+    use FirebaseAuthenticatable;
 
     // Match users by email instead of Firebase UID
     protected $firebaseResolveBy = 'email';
@@ -850,7 +852,7 @@ The default v3 column is `firebase_id`. If you'd rather call it something else (
 // App/Models/User.php
 class User extends Authenticatable
 {
-    use FirebaseAuthenticable;
+    use FirebaseAuthenticatable;
 
     // Match Firebase UID (sub claim) to the firebase_uid column
     protected $firebaseResolveBy = ['sub' => 'firebase_uid'];
@@ -883,7 +885,7 @@ For any extra Firebase claim you want stored on the user, add it to `$firebaseCl
 ```php
 class User extends Authenticatable
 {
-    use FirebaseAuthenticable;
+    use FirebaseAuthenticatable;
 
     protected $firebaseClaimsMapping = [
         'email' => 'email',
@@ -954,7 +956,7 @@ For conditional logic or data transformation, override `transformClaims()` — s
 **Problem:** User model not syncing with Firebase claims.
 
 **Solution:**
-1. Verify `FirebaseAuthenticable` trait is added to User model
+1. Verify `FirebaseAuthenticatable` trait is added to User model
 2. Check `$fillable` includes: `['name', 'email', 'firebase_id', 'avatar_url']`
 3. Verify the `firebase_id` column exists on the users table (run the bundled migration or add it manually)
 
