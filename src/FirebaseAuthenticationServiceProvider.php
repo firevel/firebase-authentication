@@ -25,11 +25,11 @@ class FirebaseAuthenticationServiceProvider extends ServiceProvider
 
         if ($this->app->runningInConsole()) {
             $this->publishes([
-                __DIR__ . '/../database/migrations/add_firebase_columns_to_users_table.php.stub' => database_path('migrations/' . date('Y_m_d_His') . '_add_firebase_columns_to_users_table.php'),
+                __DIR__.'/../database/migrations/add_firebase_columns_to_users_table.php.stub' => database_path('migrations/'.date('Y_m_d_His').'_add_firebase_columns_to_users_table.php'),
             ], 'firebase-authentication-migrations');
 
             $this->publishes([
-                __DIR__ . '/../config/firebase-authentication.php' => config_path('firebase-authentication.php'),
+                __DIR__.'/../config/firebase-authentication.php' => config_path('firebase-authentication.php'),
             ], 'firebase-authentication-config');
         }
 
@@ -44,7 +44,7 @@ class FirebaseAuthenticationServiceProvider extends ServiceProvider
 
         if (config('firebase-authentication.session.enabled', true)) {
             Route::middleware(config('firebase-authentication.session.middleware', 'web'))
-                ->group(__DIR__ . '/../routes/firebase-session.php');
+                ->group(__DIR__.'/../routes/firebase-session.php');
         }
     }
 
@@ -56,7 +56,7 @@ class FirebaseAuthenticationServiceProvider extends ServiceProvider
     public function register()
     {
         $this->mergeConfigFrom(
-            __DIR__ . '/../config/firebase-authentication.php',
+            __DIR__.'/../config/firebase-authentication.php',
             'firebase-authentication'
         );
 
