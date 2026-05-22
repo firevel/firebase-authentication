@@ -48,9 +48,8 @@ class FirebaseIdentity extends Authenticatable
     /**
      * Resolve a stateless identity from verified token claims.
      *
-     * Microservice mode has no database, so this never returns null —
-     * the `?object` return type is kept only for signature parity with
-     * the trait method it overrides.
+     * Returns null only when the configured resolve key is missing from
+     * the claims — there is no database lookup that could otherwise fail.
      */
     public function resolveByClaims(array $claims): ?object
     {
@@ -62,6 +61,10 @@ class FirebaseIdentity extends Authenticatable
         } else {
             $claimKey = array_key_first($resolveBy);
             $modelAttribute = array_values($resolveBy)[0];
+        }
+
+        if (empty($claims[$claimKey])) {
+            return null;
         }
 
         $attributes = $this->transformClaims($claims);

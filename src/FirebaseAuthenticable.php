@@ -62,8 +62,9 @@ trait FirebaseAuthenticable
     /**
      * Resolve (and optionally create) a User from verified token claims.
      *
-     * Returns null when auto-creation is disabled and no matching user
-     * exists in the database.
+     * Returns null when:
+     * - the configured resolve key is missing or empty in the claims, or
+     * - auto-creation is disabled and no matching user exists.
      */
     public function resolveByClaims(array $claims): ?object
     {
@@ -73,6 +74,10 @@ trait FirebaseAuthenticable
             $claimKey = $resolveBy;
         } else {
             $claimKey = array_key_first($resolveBy);
+        }
+
+        if (empty($claims[$claimKey])) {
+            return null;
         }
 
         $id = (string) $claims[$claimKey];
