@@ -5,7 +5,6 @@ namespace Firevel\FirebaseAuthentication\Tests\Unit;
 use Firevel\FirebaseAuthentication\Contracts\TokenVerifier;
 use Firevel\FirebaseAuthentication\Testing\FakeTokenVerifier;
 use Firevel\FirebaseAuthentication\Testing\FirebaseAuth;
-use Firevel\FirebaseAuthentication\Tests\Fixtures\User;
 use Firevel\FirebaseAuthentication\Tests\TestCase;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Route;
