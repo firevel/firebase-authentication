@@ -52,7 +52,7 @@ jobs:
           key: composer-${{ matrix.php }}-${{ matrix.laravel }}-${{ matrix.dependency-version }}-${{ hashFiles('composer.json') }}
           restore-keys: composer-${{ matrix.php }}-${{ matrix.laravel }}-${{ matrix.dependency-version }}-
 
-      - name: Install dependencies
+      - name: Pin Laravel and Testbench versions
         run: |
           composer require \
             "illuminate/auth:${{ matrix.laravel }}" \
@@ -60,9 +60,13 @@ jobs:
             "illuminate/http:${{ matrix.laravel }}" \
             "illuminate/routing:${{ matrix.laravel }}" \
             "illuminate/support:${{ matrix.laravel }}" \
+            --no-interaction --no-update
+          composer require --dev \
             "orchestra/testbench:${{ matrix.testbench }}" \
             --no-interaction --no-update
-          composer update --${{ matrix.dependency-version }} --prefer-dist --no-interaction --no-progress
+
+      - name: Install dependencies
+        run: composer update --${{ matrix.dependency-version }} --prefer-dist --no-interaction --no-progress --no-audit
 
       - name: Run PHPUnit
         run: vendor/bin/phpunit
