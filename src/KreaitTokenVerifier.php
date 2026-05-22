@@ -8,7 +8,9 @@ use Kreait\Firebase\JWT\IdTokenVerifier;
 
 class KreaitTokenVerifier implements TokenVerifier
 {
-    public function __construct(private readonly IdTokenVerifier $verifier) {}
+    public function __construct(private readonly IdTokenVerifier $verifier)
+    {
+    }
 
     public function verifyIdToken(string $token): Token
     {
