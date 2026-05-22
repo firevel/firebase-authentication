@@ -3,6 +3,7 @@
 namespace Firevel\FirebaseAuthentication;
 
 use Auth;
+use Firevel\FirebaseAuthentication\Contracts\TokenVerifier;
 use Illuminate\Auth\RequestGuard;
 use Illuminate\Foundation\Support\Providers\AuthServiceProvider as ServiceProvider;
 use Illuminate\Support\Facades\Cache;
@@ -70,6 +71,10 @@ class FirebaseAuthenticationServiceProvider extends ServiceProvider
             }
 
             return IdTokenVerifier::createWithProjectIdAndCache($project, $this->resolveCache());
+        });
+
+        $this->app->singleton(TokenVerifier::class, function ($app) {
+            return new KreaitTokenVerifier($app->make(IdTokenVerifier::class));
         });
     }
 

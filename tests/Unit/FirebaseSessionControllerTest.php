@@ -2,6 +2,7 @@
 
 namespace Firevel\FirebaseAuthentication\Tests\Unit;
 
+use Firevel\FirebaseAuthentication\Contracts\TokenVerifier;
 use Firevel\FirebaseAuthentication\Http\Controllers\FirebaseSessionController;
 use Firevel\FirebaseAuthentication\Tests\Fixtures\User;
 use Firevel\FirebaseAuthentication\Tests\TestCase;
@@ -9,7 +10,6 @@ use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\Schema;
 use Kreait\Firebase\JWT\Error\IdTokenVerificationFailed;
-use Kreait\Firebase\JWT\IdTokenVerifier;
 
 class FirebaseSessionControllerTest extends TestCase
 {
@@ -144,10 +144,10 @@ class FirebaseSessionControllerTest extends TestCase
             }
         };
 
-        return new class(app(IdTokenVerifier::class), $expectedToken, $tokenStub) extends FirebaseSessionController
+        return new class(app(TokenVerifier::class), $expectedToken, $tokenStub) extends FirebaseSessionController
         {
             public function __construct(
-                IdTokenVerifier $verifier,
+                TokenVerifier $verifier,
                 private string $expectedToken,
                 private object $tokenStub,
             ) {
@@ -167,7 +167,7 @@ class FirebaseSessionControllerTest extends TestCase
 
     protected function controllerThatRejects(): FirebaseSessionController
     {
-        return new class(app(IdTokenVerifier::class)) extends FirebaseSessionController
+        return new class(app(TokenVerifier::class)) extends FirebaseSessionController
         {
             protected function verifyToken(string $token)
             {

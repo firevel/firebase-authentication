@@ -2,17 +2,17 @@
 
 namespace Firevel\FirebaseAuthentication\Http\Controllers;
 
+use Firevel\FirebaseAuthentication\Contracts\TokenVerifier;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Routing\Controller;
 use Illuminate\Support\Facades\Auth;
 use Kreait\Firebase\JWT\Error\IdTokenVerificationFailed;
-use Kreait\Firebase\JWT\IdTokenVerifier;
 
 class FirebaseSessionController extends Controller
 {
     public function __construct(
-        protected IdTokenVerifier $verifier
+        protected TokenVerifier $verifier
     ) {
     }
 

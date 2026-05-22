@@ -2,11 +2,11 @@
 
 namespace Firevel\FirebaseAuthentication\Tests\Unit;
 
+use Firevel\FirebaseAuthentication\Contracts\TokenVerifier;
 use Firevel\FirebaseAuthentication\FirebaseGuard;
 use Firevel\FirebaseAuthentication\Tests\TestCase;
 use Illuminate\Http\Request;
 use Kreait\Firebase\JWT\Error\IdTokenVerificationFailed;
-use Kreait\Firebase\JWT\IdTokenVerifier;
 
 class FirebaseGuardLeewayTest extends TestCase
 {
@@ -38,31 +38,25 @@ class FirebaseGuardLeewayTest extends TestCase
         $this->assertEquals(['verifyIdTokenWithLeeway' => ['jwt-token', 30]], $spy->calls);
     }
 
-    private function guardWithVerifier(object $verifier): FirebaseGuard
+    private function guardWithVerifier(TokenVerifier $verifier): FirebaseGuard
     {
-        $guard = new FirebaseGuard(app(IdTokenVerifier::class));
-
-        $reflection = new \ReflectionProperty($guard, 'verifier');
-        $reflection->setAccessible(true);
-        $reflection->setValue($guard, $verifier);
-
-        return $guard;
+        return new FirebaseGuard($verifier);
     }
 }
 
-class VerifierSpy
+class VerifierSpy implements TokenVerifier
 {
     public array $calls = [];
 
-    public function verifyIdToken(string $token)
+    public function verifyIdToken(string $token): \Kreait\Firebase\JWT\Contract\Token
     {
         $this->calls = ['verifyIdToken' => [$token]];
         throw new IdTokenVerificationFailed('stop');
     }
 
-    public function verifyIdTokenWithLeeway(string $token, int $leeway)
+    public function verifyIdTokenWithLeeway(string $token, int $leewayInSeconds): \Kreait\Firebase\JWT\Contract\Token
     {
-        $this->calls = ['verifyIdTokenWithLeeway' => [$token, $leeway]];
+        $this->calls = ['verifyIdTokenWithLeeway' => [$token, $leewayInSeconds]];
         throw new IdTokenVerificationFailed('stop');
     }
 }

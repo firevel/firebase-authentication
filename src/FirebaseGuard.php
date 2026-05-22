@@ -2,22 +2,14 @@
 
 namespace Firevel\FirebaseAuthentication;
 
+use Firevel\FirebaseAuthentication\Contracts\TokenVerifier;
 use Illuminate\Http\Request;
-use Kreait\Firebase\JWT\IdTokenVerifier;
 
 class FirebaseGuard
 {
-    /**
-     * @var Kreait\Firebase\JWT\IdTokenVerifier
-     */
-    protected $verifier;
+    protected TokenVerifier $verifier;
 
-    /**
-     * Constructor.
-     *
-     * @return void
-     */
-    public function __construct(IdTokenVerifier $verifier)
+    public function __construct(TokenVerifier $verifier)
     {
         $this->verifier = $verifier;
     }
