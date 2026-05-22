@@ -31,29 +31,32 @@ class FirebaseGuard
 
         try {
             $firebaseToken = $this->verifyToken($token);
-
-            $model = $modelClass ?? config('auth.providers.users.model');
-
-            $user = app($model)->resolveByClaims($firebaseToken->payload());
-
-            if ($user === null) {
+        } catch (IdTokenVerificationFailed $e) {
+            // Expired tokens are routine traffic — never noisy, regardless
+            // of debug mode, to avoid log spam from normal client behaviour.
+            if (str_contains($e->getMessage(), 'token is expired')) {
                 return;
             }
 
-            return $user->setFirebaseAuthenticationToken($token);
-        } catch (\Exception $e) {
-            if ($e instanceof IdTokenVerificationFailed) {
-                if (str_contains($e->getMessage(), 'token is expired')) {
-                    return;
-                }
-            }
-
+            // Other verification failures (bad signature, wrong audience,
+            // malformed JWT) surface in debug mode to aid local development
+            // and stay silent in production to avoid noise from probing.
             if (config('app.debug')) {
                 throw $e;
             }
 
             return;
         }
+
+        $model = $modelClass ?? config('auth.providers.users.model');
+
+        $user = app($model)->resolveByClaims($firebaseToken->payload());
+
+        if ($user === null) {
+            return;
+        }
+
+        return $user->setFirebaseAuthenticationToken($token);
     }
 
     /**
