@@ -6,6 +6,7 @@ use Firevel\FirebaseAuthentication\Tests\Fixtures\UserWithEmailVerifiedAt;
 use Firevel\FirebaseAuthentication\Tests\TestCase;
 use Illuminate\Support\Carbon;
 use Illuminate\Support\Facades\Schema;
+use PHPUnit\Framework\Attributes\Test;
 
 class EmailVerificationSyncTest extends TestCase
 {
@@ -23,7 +24,7 @@ class EmailVerificationSyncTest extends TestCase
         });
     }
 
-    /** @test */
+    #[Test]
     public function it_sets_email_verified_at_when_claim_is_true_and_column_is_null()
     {
         Carbon::setTestNow('2026-05-22 12:00:00');
@@ -38,7 +39,7 @@ class EmailVerificationSyncTest extends TestCase
         $this->assertTrue($user->email_verified_at->equalTo('2026-05-22 12:00:00'));
     }
 
-    /** @test */
+    #[Test]
     public function it_does_not_set_email_verified_at_when_claim_is_false()
     {
         $user = (new UserWithEmailVerifiedAt)->resolveByClaims([
@@ -50,7 +51,7 @@ class EmailVerificationSyncTest extends TestCase
         $this->assertNull($user->email_verified_at);
     }
 
-    /** @test */
+    #[Test]
     public function it_does_not_overwrite_existing_email_verified_at()
     {
         $existing = UserWithEmailVerifiedAt::create([
@@ -71,7 +72,7 @@ class EmailVerificationSyncTest extends TestCase
         $this->assertEquals($existing->id, $user->id);
     }
 
-    /** @test */
+    #[Test]
     public function it_can_be_disabled_via_config()
     {
         config(['firebase-authentication.email_verification.enabled' => false]);

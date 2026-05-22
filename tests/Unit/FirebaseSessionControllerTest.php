@@ -10,6 +10,7 @@ use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\Schema;
 use Kreait\Firebase\JWT\Error\IdTokenVerificationFailed;
+use PHPUnit\Framework\Attributes\Test;
 
 class FirebaseSessionControllerTest extends TestCase
 {
@@ -31,7 +32,7 @@ class FirebaseSessionControllerTest extends TestCase
         ]);
     }
 
-    /** @test */
+    #[Test]
     public function it_logs_user_in_with_a_valid_firebase_token()
     {
         $controller = $this->controllerThatVerifies('valid-jwt', [
@@ -51,7 +52,7 @@ class FirebaseSessionControllerTest extends TestCase
         $this->assertEquals('user@example.com', $user->email);
     }
 
-    /** @test */
+    #[Test]
     public function it_returns_401_when_token_is_missing()
     {
         $controller = $this->controllerThatRejects();
@@ -63,7 +64,7 @@ class FirebaseSessionControllerTest extends TestCase
         $this->assertNull(Auth::guard('web')->user());
     }
 
-    /** @test */
+    #[Test]
     public function it_returns_401_when_token_is_invalid()
     {
         $controller = $this->controllerThatRejects();
@@ -75,7 +76,7 @@ class FirebaseSessionControllerTest extends TestCase
         $this->assertNull(Auth::guard('web')->user());
     }
 
-    /** @test */
+    #[Test]
     public function logout_clears_the_session()
     {
         $user = User::create([
@@ -95,7 +96,26 @@ class FirebaseSessionControllerTest extends TestCase
         $this->assertNull(Auth::guard('web')->user());
     }
 
-    /** @test */
+    #[Test]
+    public function it_returns_500_when_configured_guard_is_not_stateful()
+    {
+        config()->set('firebase-authentication.session.guard', 'api');
+
+        $controller = $this->controllerThatVerifies('valid-jwt', [
+            'sub' => 'firebase-uid-555',
+            'email' => 'misconfig@example.com',
+        ]);
+
+        $response = $controller->login($this->makeRequest('Bearer valid-jwt'));
+
+        $this->assertEquals(500, $response->status());
+        $this->assertStringContainsString(
+            'does not support session login',
+            $response->getData(true)['error']
+        );
+    }
+
+    #[Test]
     public function it_respects_a_custom_guard_via_config()
     {
         config()->set('firebase-authentication.session.guard', 'portal');
@@ -134,9 +154,7 @@ class FirebaseSessionControllerTest extends TestCase
     {
         $tokenStub = new class($payload)
         {
-            public function __construct(private array $payload)
-            {
-            }
+            public function __construct(private array $payload) {}
 
             public function payload(): array
             {

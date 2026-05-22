@@ -10,6 +10,7 @@ use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Route;
 use Illuminate\Support\Facades\Schema;
 use Kreait\Firebase\JWT\Error\IdTokenVerificationFailed;
+use PHPUnit\Framework\Attributes\Test;
 
 class FirebaseAuthFakeTest extends TestCase
 {
@@ -41,7 +42,7 @@ class FirebaseAuthFakeTest extends TestCase
         parent::tearDown();
     }
 
-    /** @test */
+    #[Test]
     public function acting_as_authenticates_requests_with_the_given_claims()
     {
         FirebaseAuth::actingAs([
@@ -63,7 +64,7 @@ class FirebaseAuthFakeTest extends TestCase
         $this->assertDatabaseHas('users', ['firebase_id' => 'fake-uid-1']);
     }
 
-    /** @test */
+    #[Test]
     public function acting_as_anonymous_marks_user_as_anonymous()
     {
         FirebaseAuth::actingAsAnonymous('anon-uid-1');
@@ -77,7 +78,7 @@ class FirebaseAuthFakeTest extends TestCase
             ]);
     }
 
-    /** @test */
+    #[Test]
     public function reject_tokens_causes_auth_to_fail()
     {
         FirebaseAuth::rejectTokens();
@@ -87,7 +88,7 @@ class FirebaseAuthFakeTest extends TestCase
             ->assertUnauthorized();
     }
 
-    /** @test */
+    #[Test]
     public function fake_without_acting_as_still_returns_unauthenticated()
     {
         FirebaseAuth::fake();
@@ -97,7 +98,7 @@ class FirebaseAuthFakeTest extends TestCase
             ->assertUnauthorized();
     }
 
-    /** @test */
+    #[Test]
     public function repeated_acting_as_replaces_previous_claims()
     {
         FirebaseAuth::actingAs(['sub' => 'first-uid', 'email' => 'first@example.com']);
@@ -112,7 +113,7 @@ class FirebaseAuthFakeTest extends TestCase
             ]);
     }
 
-    /** @test */
+    #[Test]
     public function forget_restores_the_original_verifier_binding()
     {
         FirebaseAuth::actingAs(['sub' => 'uid-1']);
@@ -123,7 +124,7 @@ class FirebaseAuthFakeTest extends TestCase
         $this->assertNotInstanceOf(FakeTokenVerifier::class, app(TokenVerifier::class));
     }
 
-    /** @test */
+    #[Test]
     public function fake_verifier_throws_when_acting_as_was_not_called()
     {
         $verifier = FirebaseAuth::fake();

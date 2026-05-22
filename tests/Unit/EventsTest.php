@@ -9,6 +9,7 @@ use Firevel\FirebaseAuthentication\Tests\Fixtures\User;
 use Firevel\FirebaseAuthentication\Tests\TestCase;
 use Illuminate\Support\Facades\Event;
 use Illuminate\Support\Facades\Schema;
+use PHPUnit\Framework\Attributes\Test;
 
 class EventsTest extends TestCase
 {
@@ -25,7 +26,7 @@ class EventsTest extends TestCase
         });
     }
 
-    /** @test */
+    #[Test]
     public function it_fires_created_and_resolved_for_a_new_user()
     {
         Event::fake();
@@ -41,7 +42,7 @@ class EventsTest extends TestCase
         Event::assertNotDispatched(FirebaseUserUpdated::class);
     }
 
-    /** @test */
+    #[Test]
     public function it_fires_updated_and_resolved_when_existing_user_drifts()
     {
         User::create([
@@ -63,7 +64,7 @@ class EventsTest extends TestCase
         Event::assertNotDispatched(FirebaseUserCreated::class);
     }
 
-    /** @test */
+    #[Test]
     public function it_fires_only_resolved_when_user_is_unchanged()
     {
         User::create([

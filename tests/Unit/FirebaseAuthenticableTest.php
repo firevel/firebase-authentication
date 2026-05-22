@@ -8,6 +8,7 @@ use Firevel\FirebaseAuthentication\Tests\Fixtures\UserWithFirebaseUidColumn;
 use Firevel\FirebaseAuthentication\Tests\Fixtures\UserWithPhoneLocaleMapping;
 use Firevel\FirebaseAuthentication\Tests\TestCase;
 use Illuminate\Support\Facades\Schema;
+use PHPUnit\Framework\Attributes\Test;
 
 class FirebaseAuthenticableTest extends TestCase
 {
@@ -25,7 +26,31 @@ class FirebaseAuthenticableTest extends TestCase
         });
     }
 
-    /** @test */
+    #[Test]
+    public function it_returns_null_when_the_resolve_claim_is_missing()
+    {
+        $user = (new User)->resolveByClaims([
+            // sub claim deliberately omitted
+            'email' => 'noresolvekey@example.com',
+        ]);
+
+        $this->assertNull($user);
+        $this->assertEquals(0, User::count());
+    }
+
+    #[Test]
+    public function it_returns_null_when_the_resolve_claim_is_empty_string()
+    {
+        $user = (new User)->resolveByClaims([
+            'sub' => '',
+            'email' => 'empty-sub@example.com',
+        ]);
+
+        $this->assertNull($user);
+        $this->assertEquals(0, User::count());
+    }
+
+    #[Test]
     public function it_resolves_user_by_claims_with_default_resolve_by()
     {
         $claims = [
@@ -45,7 +70,7 @@ class FirebaseAuthenticableTest extends TestCase
         $this->assertEquals($claims, $user->getClaims());
     }
 
-    /** @test */
+    #[Test]
     public function it_resolves_user_by_email_when_configured()
     {
         Schema::create('users_by_email', function ($table) {
@@ -68,7 +93,7 @@ class FirebaseAuthenticableTest extends TestCase
         $this->assertEquals('Resolved User', $user->name);
     }
 
-    /** @test */
+    #[Test]
     public function it_resolves_user_by_custom_firebase_uid_column()
     {
         Schema::create('users_with_firebase_uid', function ($table) {
@@ -92,7 +117,7 @@ class FirebaseAuthenticableTest extends TestCase
         $this->assertEquals('custom@example.com', $user->email);
     }
 
-    /** @test */
+    #[Test]
     public function it_sets_and_gets_claims()
     {
         $user = new User;
@@ -107,7 +132,7 @@ class FirebaseAuthenticableTest extends TestCase
         $this->assertEquals($claims, $user->getClaims());
     }
 
-    /** @test */
+    #[Test]
     public function it_returns_empty_array_when_no_claims_set()
     {
         $user = new User;
@@ -115,7 +140,7 @@ class FirebaseAuthenticableTest extends TestCase
         $this->assertEquals([], $user->getClaims());
     }
 
-    /** @test */
+    #[Test]
     public function it_detects_anonymous_users()
     {
         $user = new User;
@@ -131,7 +156,7 @@ class FirebaseAuthenticableTest extends TestCase
         $this->assertTrue($user->isAnonymous());
     }
 
-    /** @test */
+    #[Test]
     public function it_detects_non_anonymous_users()
     {
         $user = new User;
@@ -148,7 +173,7 @@ class FirebaseAuthenticableTest extends TestCase
         $this->assertFalse($user->isAnonymous());
     }
 
-    /** @test */
+    #[Test]
     public function it_returns_false_for_anonymous_check_when_no_firebase_claim()
     {
         $user = new User;
@@ -162,7 +187,7 @@ class FirebaseAuthenticableTest extends TestCase
         $this->assertFalse($user->isAnonymous());
     }
 
-    /** @test */
+    #[Test]
     public function it_sets_and_gets_firebase_authentication_token()
     {
         $user = new User;
@@ -173,7 +198,7 @@ class FirebaseAuthenticableTest extends TestCase
         $this->assertEquals($token, $user->getFirebaseAuthenticationToken());
     }
 
-    /** @test */
+    #[Test]
     public function it_transforms_claims_to_attributes()
     {
         $user = new User;
@@ -194,7 +219,7 @@ class FirebaseAuthenticableTest extends TestCase
         ], $attributes);
     }
 
-    /** @test */
+    #[Test]
     public function it_transforms_claims_with_custom_mapping()
     {
         $userClass = new UserWithPhoneLocaleMapping;
@@ -217,7 +242,7 @@ class FirebaseAuthenticableTest extends TestCase
         ], $attributes);
     }
 
-    /** @test */
+    #[Test]
     public function it_skips_empty_claims_in_transformation()
     {
         $user = new User;
@@ -235,7 +260,7 @@ class FirebaseAuthenticableTest extends TestCase
         ], $attributes);
     }
 
-    /** @test */
+    #[Test]
     public function it_updates_existing_user_when_data_changes()
     {
         $user = User::create([
@@ -263,7 +288,7 @@ class FirebaseAuthenticableTest extends TestCase
         ]);
     }
 
-    /** @test */
+    #[Test]
     public function it_does_not_save_when_user_data_is_unchanged()
     {
         $user = User::create([
@@ -285,7 +310,7 @@ class FirebaseAuthenticableTest extends TestCase
         $this->assertFalse($resolvedUser->isDirty());
     }
 
-    /** @test */
+    #[Test]
     public function it_returns_empty_string_for_auth_password()
     {
         $user = new User;
@@ -293,7 +318,7 @@ class FirebaseAuthenticableTest extends TestCase
         $this->assertSame('', $user->getAuthPassword());
     }
 
-    /** @test */
+    #[Test]
     public function it_returns_null_for_remember_token()
     {
         $user = new User;
@@ -301,7 +326,7 @@ class FirebaseAuthenticableTest extends TestCase
         $this->assertNull($user->getRememberToken());
     }
 
-    /** @test */
+    #[Test]
     public function set_remember_token_is_a_no_op()
     {
         $user = new User;
@@ -310,7 +335,7 @@ class FirebaseAuthenticableTest extends TestCase
         $this->assertNull($user->getRememberToken());
     }
 
-    /** @test */
+    #[Test]
     public function it_returns_null_for_remember_token_name()
     {
         $user = new User;
@@ -318,7 +343,7 @@ class FirebaseAuthenticableTest extends TestCase
         $this->assertNull($user->getRememberTokenName());
     }
 
-    /** @test */
+    #[Test]
     public function it_returns_correct_auth_identifier_name()
     {
         $user = new User;
@@ -326,7 +351,7 @@ class FirebaseAuthenticableTest extends TestCase
         $this->assertEquals('id', $user->getAuthIdentifierName());
     }
 
-    /** @test */
+    #[Test]
     public function it_returns_correct_auth_identifier()
     {
         $user = User::create([

@@ -7,10 +7,11 @@ use Firevel\FirebaseAuthentication\Tests\Fixtures\FirebaseIdentityByEmail;
 use Firevel\FirebaseAuthentication\Tests\Fixtures\FirebaseIdentityWithCustomMapping;
 use Firevel\FirebaseAuthentication\Tests\Fixtures\FirebaseIdentityWithCustomUid;
 use Firevel\FirebaseAuthentication\Tests\TestCase;
+use PHPUnit\Framework\Attributes\Test;
 
 class FirebaseIdentityTest extends TestCase
 {
-    /** @test */
+    #[Test]
     public function it_can_be_instantiated()
     {
         $identity = new FirebaseIdentity;
@@ -18,7 +19,7 @@ class FirebaseIdentityTest extends TestCase
         $this->assertInstanceOf(FirebaseIdentity::class, $identity);
     }
 
-    /** @test */
+    #[Test]
     public function it_uses_firebase_authenticable_trait()
     {
         $identity = new FirebaseIdentity;
@@ -29,7 +30,7 @@ class FirebaseIdentityTest extends TestCase
         $this->assertTrue(method_exists($identity, 'isAnonymous'));
     }
 
-    /** @test */
+    #[Test]
     public function it_has_non_incrementing_id()
     {
         $identity = new FirebaseIdentity;
@@ -37,7 +38,7 @@ class FirebaseIdentityTest extends TestCase
         $this->assertFalse($identity->incrementing);
     }
 
-    /** @test */
+    #[Test]
     public function it_has_no_guarded_attributes()
     {
         $identity = new FirebaseIdentity;
@@ -45,7 +46,7 @@ class FirebaseIdentityTest extends TestCase
         $this->assertEquals([], $identity->getGuarded());
     }
 
-    /** @test */
+    #[Test]
     public function it_resolves_by_claims_without_database()
     {
         $claims = [
@@ -65,7 +66,7 @@ class FirebaseIdentityTest extends TestCase
         $this->assertEquals($claims, $identity->getClaims());
     }
 
-    /** @test */
+    #[Test]
     public function it_resolves_by_email_when_configured()
     {
         $identityClass = new FirebaseIdentityByEmail;
@@ -82,7 +83,7 @@ class FirebaseIdentityTest extends TestCase
         $this->assertEquals('Email Resolved User', $identity->name);
     }
 
-    /** @test */
+    #[Test]
     public function it_resolves_by_custom_firebase_uid_attribute()
     {
         $identityClass = new FirebaseIdentityWithCustomUid;
@@ -100,7 +101,7 @@ class FirebaseIdentityTest extends TestCase
         $this->assertEquals('Custom Identity User', $identity->name);
     }
 
-    /** @test */
+    #[Test]
     public function it_does_not_persist_to_database()
     {
         $identity = new FirebaseIdentity([
@@ -115,7 +116,7 @@ class FirebaseIdentityTest extends TestCase
         $this->assertTrue($result);
     }
 
-    /** @test */
+    #[Test]
     public function it_fills_attributes_from_claims()
     {
         $claims = [
@@ -134,7 +135,7 @@ class FirebaseIdentityTest extends TestCase
         $this->assertEquals('https://example.com/fill.jpg', $identity->avatar_url);
     }
 
-    /** @test */
+    #[Test]
     public function it_works_with_anonymous_users()
     {
         $claims = [
@@ -150,7 +151,7 @@ class FirebaseIdentityTest extends TestCase
         $this->assertEquals('anonymous-123', $identity->id);
     }
 
-    /** @test */
+    #[Test]
     public function it_stores_claims_from_jwt()
     {
         $claims = [
@@ -175,7 +176,7 @@ class FirebaseIdentityTest extends TestCase
         $this->assertEquals('admin', $retrievedClaims['custom_role']);
     }
 
-    /** @test */
+    #[Test]
     public function it_stores_firebase_authentication_token()
     {
         $identity = new FirebaseIdentity;
@@ -186,7 +187,7 @@ class FirebaseIdentityTest extends TestCase
         $this->assertEquals($token, $identity->getFirebaseAuthenticationToken());
     }
 
-    /** @test */
+    #[Test]
     public function it_can_be_used_for_authentication()
     {
         $claims = [
@@ -201,7 +202,7 @@ class FirebaseIdentityTest extends TestCase
         $this->assertEquals('auth-test-123', $identity->getAuthIdentifier());
     }
 
-    /** @test */
+    #[Test]
     public function it_supports_custom_claims_mapping()
     {
         $identityClass = new FirebaseIdentityWithCustomMapping;

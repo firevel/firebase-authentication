@@ -3,6 +3,7 @@
 namespace Firevel\FirebaseAuthentication\Tests;
 
 use Firevel\FirebaseAuthentication\FirebaseAuthenticationServiceProvider;
+use Firevel\FirebaseAuthentication\Tests\Fixtures\User;
 use Orchestra\Testbench\TestCase as Orchestra;
 
 abstract class TestCase extends Orchestra
@@ -22,7 +23,7 @@ abstract class TestCase extends Orchestra
     protected function getEnvironmentSetUp($app)
     {
         // Setup default environment configuration
-        $app['config']->set('app.key', 'base64:'.base64_encode(random_bytes(32)));
+        $app['config']->set('app.key', 'base64:' . base64_encode(random_bytes(32)));
         $app['config']->set('database.default', 'testing');
         $app['config']->set('database.connections.testing', [
             'driver' => 'sqlite',
@@ -42,7 +43,7 @@ abstract class TestCase extends Orchestra
         ]);
         $app['config']->set('auth.providers.users', [
             'driver' => 'eloquent',
-            'model' => \Firevel\FirebaseAuthentication\Tests\Fixtures\User::class,
+            'model' => User::class,
         ]);
     }
 }

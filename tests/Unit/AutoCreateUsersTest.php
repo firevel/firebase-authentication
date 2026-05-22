@@ -5,6 +5,7 @@ namespace Firevel\FirebaseAuthentication\Tests\Unit;
 use Firevel\FirebaseAuthentication\Tests\Fixtures\User;
 use Firevel\FirebaseAuthentication\Tests\TestCase;
 use Illuminate\Support\Facades\Schema;
+use PHPUnit\Framework\Attributes\Test;
 
 class AutoCreateUsersTest extends TestCase
 {
@@ -21,7 +22,7 @@ class AutoCreateUsersTest extends TestCase
         });
     }
 
-    /** @test */
+    #[Test]
     public function it_returns_null_when_auto_create_disabled_and_no_existing_user()
     {
         config(['firebase-authentication.auto_create_users' => false]);
@@ -35,7 +36,7 @@ class AutoCreateUsersTest extends TestCase
         $this->assertEquals(0, User::count());
     }
 
-    /** @test */
+    #[Test]
     public function it_still_returns_existing_users_when_auto_create_disabled()
     {
         config(['firebase-authentication.auto_create_users' => false]);
@@ -56,7 +57,7 @@ class AutoCreateUsersTest extends TestCase
         $this->assertEquals('known@example.com', $user->email);
     }
 
-    /** @test */
+    #[Test]
     public function it_creates_users_by_default()
     {
         $user = (new User)->resolveByClaims([
