@@ -12,18 +12,6 @@ trait FirebaseAuthenticable
     protected $claims;
 
     /**
-     * Initialize the Firebase authentication trait for the instance.
-     *
-     * Firebase UIDs are strings, so non-incrementing string keys are the sensible default.
-     * To use auto-incrementing integer keys, override getIncrementing() / getKeyType() on the model.
-     */
-    public function initializeFirebaseAuthenticable(): void
-    {
-        $this->incrementing = false;
-        $this->keyType = 'string';
-    }
-
-    /**
      * Firebase token.
      *
      * @var string|null
