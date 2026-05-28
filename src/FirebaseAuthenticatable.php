@@ -211,7 +211,7 @@ trait FirebaseAuthenticatable
         foreach ($this->getFirebaseClaimsMapping() as $attribute => $claimKey) {
             $value = $this->getClaimValue($claims, $claimKey);
 
-            if ($value === null || $value === '') {
+            if ($value === null || $value === '' || ! is_scalar($value)) {
                 continue;
             }
 
