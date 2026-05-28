@@ -15,34 +15,35 @@ A production-ready Firebase Authentication driver for Laravel that enables seaml
   - [Standard Setup (with Database)](#standard-setup-with-database)
   - [Microservice Setup (without Database)](#microservice-setup-without-database)
   - [Multiple Guards](#multiple-guards)
-  - [Web Guard Configuration](#web-guard-configuration)
+  - [Web Authentication](#web-authentication)
+- [Configuration Reference](#configuration-reference)
 - [Usage](#usage)
-  - [Basic Authentication](#basic-authentication)
-  - [Anonymous Users](#anonymous-users)
-  - [Accessing JWT Claims](#accessing-jwt-claims)
-  - [Working with Firebase Tokens](#working-with-firebase-tokens)
 - [API Reference](#api-reference)
 - [Common Use Cases](#common-use-cases)
 - [Security Considerations](#security-considerations)
 - [Troubleshooting](#troubleshooting)
+- [Upgrading from v2.x](UPGRADING.md)
 - [Contributing](#contributing)
 - [License](#license)
 
 ## Features
 
 - **JWT Token Verification**: Securely verify Firebase Authentication JWT tokens
-- **Automatic User Sync**: Automatically create/update users from Firebase claims
+- **Automatic User Sync**: Create or update users from Firebase claims, with an opt-out for invite-only flows
+- **Email Verification Sync**: Firebase's `email_verified` claim populates `email_verified_at` automatically
+- **Lifecycle Events**: `FirebaseUserCreated`, `FirebaseUserUpdated`, `FirebaseUserResolved` for plug-in hooks
 - **Anonymous Authentication**: Built-in support for Firebase anonymous users
 - **Microservice Ready**: Stateless authentication without database dependency
-- **Web & API Guards**: Support for both session-based and API authentication
-- **Token Caching**: Optimized token verification with built-in caching
+- **Web & API Guards**: Session-based exchange endpoint and bearer-token API auth
+- **Configurable Caching**: Use Laravel's Redis/Memcached/database cache for the JWKS cache, not just the local filesystem
+- **Clock-Skew Tolerance**: Optional leeway for token verification
 - **Laravel Integration**: Native integration with Laravel's authentication system
 - **Flexible User Models**: Works with Eloquent, or custom models
 
 ## Requirements
 
-- PHP 8.0 or higher
-- Laravel 9.x, 10.x, 11.x, 12.x
+- PHP 8.2 or higher
+- Laravel 11.x, 12.x, 13.x
 - Firebase project with Authentication enabled
 
 ## Installation
@@ -54,6 +55,10 @@ composer require firevel/firebase-authentication
 ```
 
 The package will automatically register its service provider.
+
+## Upgrading from v2.x
+
+See [UPGRADING.md](UPGRADING.md) for the v2 → v3 migration guide.
 
 ## Quick Start
 
@@ -76,26 +81,35 @@ GOOGLE_CLOUD_PROJECT=your-firebase-project-id
 
 3. **Add trait to your User model**:
 ```php
-use Firevel\FirebaseAuthentication\FirebaseAuthenticable;
+use Firevel\FirebaseAuthentication\FirebaseAuthenticatable;
 
 class User extends Authenticatable
 {
-    use FirebaseAuthenticable;
+    use FirebaseAuthenticatable;
 
-    protected $fillable = ['name', 'email', 'picture'];
+    protected $fillable = ['name', 'email', 'firebase_id', 'avatar_url'];
 
-    // Optional: Customize how users are matched (default: ['sub' => 'id'])
-    protected $firebaseResolveBy = 'email'; // use 'email' to automatically create or find user by email
+    // Optional: match users by email instead of Firebase UID (default: ['sub' => 'firebase_id'])
+    // protected $firebaseResolveBy = 'email';
 
-    // Optional: Customize which Firebase claims map to which user attributes
-    protected $firebaseClaimsMapping = [
-        'email' => 'email',
-        'name' => 'name',
-    ];
+    // Optional: customize which Firebase claims map to which user attributes
+    // (default: email→email, name→name, avatar_url→picture)
+    // protected $firebaseClaimsMapping = [
+    //     'email' => 'email',
+    //     'name' => 'name',
+    // ];
 }
 ```
 
-4. **Protect your routes**:
+4. **Add the `firebase_id` and `avatar_url` columns** to your users table:
+```bash
+php artisan vendor:publish --tag=firebase-authentication-migrations
+php artisan migrate
+```
+
+The published migration is additive: it adds `firebase_id` (unique, nullable) and `avatar_url` columns to your existing `users` table and makes `password` nullable. The existing `id` integer primary key is preserved.
+
+5. **Protect your routes**:
 ```php
 Route::middleware('auth:api')->get('/user', function (Request $request) {
     return $request->user();
@@ -118,26 +132,28 @@ Add your Firebase project ID to `.env`:
 GOOGLE_CLOUD_PROJECT=your-firebase-project-id
 ```
 
-Alternatively, publish and configure the firebase config:
+Alternatively, publish the package config and set `project_id` there:
+
+```bash
+php artisan vendor:publish --tag=firebase-authentication-config
+```
 
 ```php
-// config/firebase.php
+// config/firebase-authentication.php
 return [
     'project_id' => env('FIREBASE_PROJECT_ID', 'your-project-id'),
+    // ...
 ];
 ```
 
+> For backwards compatibility, the package also still reads `config('firebase.project_id')` and `env('GOOGLE_CLOUD_PROJECT')` if the package-namespaced value is unset.
+
 #### 2. Update Authentication Configuration
 
-Modify `config/auth.php` to use the Firebase driver:
+Modify `config/auth.php` to use the Firebase driver for API auth:
 
 ```php
 'guards' => [
-    'web' => [
-        'driver' => 'firebase',
-        'provider' => 'users',
-    ],
-
     'api' => [
         'driver' => 'firebase',
         'provider' => 'users',
@@ -145,9 +161,11 @@ Modify `config/auth.php` to use the Firebase driver:
 ],
 ```
 
+> For browser-based auth, see [Web Authentication](#web-authentication) below — the recommended path uses Laravel's `session` driver, not the `firebase` driver.
+
 #### 3. Update Your User Model
 
-Add the `FirebaseAuthenticable` trait to your User model:
+Add the `FirebaseAuthenticatable` trait to your User model:
 
 **Eloquent Example:**
 
@@ -156,13 +174,13 @@ Add the `FirebaseAuthenticable` trait to your User model:
 
 namespace App\Models;
 
-use Firevel\FirebaseAuthentication\FirebaseAuthenticable;
+use Firevel\FirebaseAuthentication\FirebaseAuthenticatable;
 use Illuminate\Foundation\Auth\User as Authenticatable;
 use Illuminate\Notifications\Notifiable;
 
 class User extends Authenticatable
 {
-    use Notifiable, FirebaseAuthenticable;
+    use Notifiable, FirebaseAuthenticatable;
 
     /**
      * The attributes that are mass assignable.
@@ -172,7 +190,8 @@ class User extends Authenticatable
     protected $fillable = [
         'name',
         'email',
-        'picture',
+        'firebase_id',
+        'avatar_url',
     ];
 
 }
@@ -180,7 +199,16 @@ class User extends Authenticatable
 
 #### 4. Create/Update Users Table Migration
 
-If using a SQL database, create a migration for the users table:
+Two options, depending on whether you already have a `users` table.
+
+**Option A — existing `users` table (e.g. Laravel default):** publish the bundled migration. It adds `firebase_id` (unique, nullable), `avatar_url`, and makes `password` nullable, leaving the rest of the table intact.
+
+```bash
+php artisan vendor:publish --tag=firebase-authentication-migrations
+php artisan migrate
+```
+
+**Option B — creating a new `users` table from scratch:**
 
 ```bash
 php artisan make:migration create_users_table
@@ -190,16 +218,17 @@ php artisan make:migration create_users_table
 public function up()
 {
     Schema::create('users', function (Blueprint $table) {
-        $table->string('id')->primary(); // Firebase UID
+        $table->id();
+        $table->string('firebase_id')->unique()->nullable();
         $table->string('name')->nullable();
         $table->string('email')->unique()->nullable();
-        $table->string('picture')->nullable();
+        $table->string('avatar_url')->nullable();
+        $table->string('password')->nullable();
+        $table->rememberToken();
         $table->timestamps();
     });
 }
 ```
-
-Run the migration:
 
 ```bash
 php artisan migrate
@@ -208,6 +237,8 @@ php artisan migrate
 ### Microservice Setup (without Database)
 
 For microservices that only need to verify authentication without storing user data, use the `FirebaseIdentity` model.
+
+`FirebaseIdentity` stores the Firebase UID on `$identity->firebase_id` — same shape as the `User` model — so `$request->user()->firebase_id` means the same thing across services. The model's `id` is intentionally unset by default; populate it from a custom claim only if you need integer-id parity with your core service (see [Exposing user_id / organization_id from custom claims](#exposing-user_id--organization_id-from-custom-claims)).
 
 #### 1. Update Authentication Configuration
 
@@ -252,6 +283,41 @@ Route::middleware('auth:api')->group(function () {
 - Lightweight and fast
 - Perfect for serverless deployments
 - User data available from JWT claims
+
+#### 3. Exposing `user_id` / `organization_id` from custom claims
+
+In most microservice setups you just need to know "who is calling" — `$identity->firebase_id` is enough, plus `$identity->getClaims()` for anything else on the token.
+
+When the core service mints Firebase custom claims (via the Admin SDK) carrying its own identifiers, you can expose them as attributes on the identity by subclassing `FirebaseIdentity` and customizing `$firebaseClaimsMapping`:
+
+```php
+namespace App\Auth;
+
+use Firevel\FirebaseAuthentication\FirebaseIdentity;
+
+class Identity extends FirebaseIdentity
+{
+    protected $firebaseClaimsMapping = [
+        'id'              => 'user_id',         // integer id minted by the core service
+        'organization_id' => 'organization.id', // nested claim via dot notation
+        'email'           => 'email',
+        'name'            => 'name',
+    ];
+}
+```
+
+Point the provider at your subclass instead of the package class:
+
+```php
+'providers' => [
+    'users' => [
+        'driver' => 'eloquent',
+        'model' => App\Auth\Identity::class,
+    ],
+],
+```
+
+Now `$request->user()->id` is the integer assigned by your core service and `$request->user()->organization_id` reflects the nested claim. If a claim is missing the attribute is simply not set — there is no silent fallback to the Firebase UID, so misconfigurations stay visible. For this to work the core service must put the matching claims on the token via the Firebase Admin SDK (e.g. `auth.setCustomUserClaims($uid, ['user_id' => 42, 'organization' => ['id' => 7]])`); without that, the microservice has no way to know those values.
 
 ### Multiple Guards
 
@@ -312,7 +378,7 @@ class RegisterController extends Controller
         $identity = $request->user(); // FirebaseIdentity instance
 
         $user = User::create([
-            'id' => $identity->id,
+            'firebase_id' => $identity->firebase_id,
             'email' => $identity->email,
             'name' => $identity->name,
         ]);
@@ -324,217 +390,313 @@ class RegisterController extends Controller
 
 Each guard resolves users through its own provider, so the `api` guard will look up/create users in the database while the `register` guard returns a lightweight `FirebaseIdentity` populated from JWT claims.
 
-### Web Guard Configuration
+### Web Authentication
 
-To use Firebase authentication with web routes (session-based), you need to extract the bearer token from cookies.
+There are two ways to authenticate browser users — pick one based on whether your backend needs to hold the raw Firebase token.
 
-#### Add Middleware
+| | **Option A — Laravel session** | **Option B — Cookie-carried bearer token** |
+| --- | --- | --- |
+| Backend has the Firebase token to forward | No | Yes |
+| Login lifetime | Whatever `config('session.lifetime')` says | Whatever the cookie holds (refreshed by client) |
+| CSRF & session ergonomics | Standard Laravel | Bypassed (cookie acts as a bearer) |
+| Setup | Auto-registered `POST /auth/firebase` endpoint | Middleware in the `web` group |
 
-In `bootstrap/app.php` (Laravel 11+):
+#### Option A — Laravel session (recommended)
+
+Exchange a Firebase ID token for a standard Laravel session, then let the session cookie drive web auth like any other Laravel app. The backend never stores the Firebase token; client-side `getIdToken()` keeps it fresh and re-presents it on demand.
+
+**1. Configure a session-driven guard** in `config/auth.php`:
+
+```php
+'guards' => [
+    'web' => [
+        'driver' => 'session',
+        'provider' => 'users',
+    ],
+    'api' => [
+        'driver' => 'firebase',
+        'provider' => 'users',
+    ],
+],
+```
+
+**2. From the browser, POST a fresh Firebase ID token** to the auto-registered endpoint:
+
+```javascript
+const idToken = await firebase.auth().currentUser.getIdToken();
+
+await fetch('/auth/firebase', {
+    method: 'POST',
+    credentials: 'include',
+    headers: {
+        Authorization: `Bearer ${idToken}`,
+        'X-CSRF-TOKEN': csrfToken,            // when middleware = 'web'
+        'X-Requested-With': 'XMLHttpRequest',
+    },
+});
+```
+
+After a 200 response, the browser holds a Laravel session cookie and every subsequent web request is authenticated normally. Logout is `DELETE /auth/firebase` (send the same `X-CSRF-TOKEN` header).
+
+**3. Customize behavior** by publishing the config:
+
+```bash
+php artisan vendor:publish --tag=firebase-authentication-config
+```
+
+That writes `config/firebase-authentication.php`. The `session` block controls this flow:
+
+```php
+'session' => [
+    'enabled'    => true,            // auto-register the routes
+    'prefix'     => 'auth/firebase', // URL prefix
+    'middleware' => 'web',           // 'web', 'api', or a custom group/array
+    'guard'      => 'web',           // which session guard to log into
+],
+```
+
+Set `firebase-authentication.session.enabled` to `false` if you'd rather wire up your own routes against `Firevel\FirebaseAuthentication\Http\Controllers\FirebaseSessionController`.
+
+> Defaults apply even without publishing — you only need the file if you want to override.
+
+**Tradeoff:** because the backend doesn't hold the Firebase token, it can't forward it to other Firebase-verifying services as the user. If you need that, send a fresh ID token in the `Authorization` header on the specific API calls that need it — the Firebase JS SDK guarantees freshness via `getIdToken()`. This pairs naturally with keeping the `api` guard above (`'driver' => 'firebase'`) for those calls.
+
+#### Option B — Legacy: cookie-carried bearer token
+
+Store the raw Firebase ID token in a cookie and have a middleware promote it to an `Authorization: Bearer …` header on every request. The backend can then read the token any time (useful for forwarding to other services), at the cost of bypassing Laravel's standard session/CSRF flow.
+
+**1. Configure** the web guard to use the Firebase driver in `config/auth.php`:
+
+```php
+'guards' => [
+    'web' => [
+        'driver' => 'firebase',
+        'provider' => 'users',
+    ],
+],
+```
+
+**2. Add the middleware *and* exclude the cookie from encryption** in `bootstrap/app.php`:
 
 ```php
 ->withMiddleware(function (Middleware $middleware) {
+    $middleware->encryptCookies(except: [
+        'bearer_token', // must match firebase-authentication.token_cookie
+    ]);
+
     $middleware->web(append: [
         \Firevel\FirebaseAuthentication\Http\Middleware\AddAccessTokenFromCookie::class,
     ]);
 })
 ```
 
-Or in `app/Http/Kernel.php` (Laravel 10 and below):
+> ⚠️ **The encryption exclusion is required.** Laravel's `EncryptCookies` middleware runs before this one and silently nulls cookies it cannot decrypt — including a plain Firebase ID token your frontend just set. Without the `except: [...]` entry the middleware appears to do nothing and authentication fails silently. The cookie name must match `config('firebase-authentication.token_cookie')` (default `bearer_token`).
+
+Your frontend is responsible for keeping the cookie up to date as Firebase ID tokens rotate.
+
+## Configuration Reference
+
+After publishing the config with `php artisan vendor:publish --tag=firebase-authentication-config`, the following options are available in `config/firebase-authentication.php`. All have sensible defaults — only override what you need.
+
+| Key | Default | Purpose |
+| --- | --- | --- |
+| `project_id` | `env('GOOGLE_CLOUD_PROJECT')` | Firebase project ID used to verify token issuer/audience. |
+| `token_cookie` | `null` (falls back to `bearer_token`) | Cookie name read by the legacy `AddAccessTokenFromCookie` middleware. |
+| `leeway` | `null` | Seconds of clock skew tolerated when verifying tokens. Set to a small value like `30` if you see sporadic "token used before issued" errors. |
+| `auto_create_users` | `true` | Set to `false` to reject verified tokens whose subject has no matching DB row (invite-only flows). `resolveByClaims()` returns `null` instead of creating. |
+| `allow_anonymous` | `false` | Whether to accept Firebase anonymous sign-ins. Rejected by default; enable only if your app deliberately supports anonymous users. |
+| `email_verification.enabled` | `true` | Sync the `email_verified` claim to a timestamp column on the user model. |
+| `email_verification.column` | `email_verified_at` | Which column receives the timestamp. Only set if currently null — never overwrites an existing value. |
+| `cache.store` | `null` | Laravel cache store name (e.g. `'redis'`). When set, the package shares the public-key cache via that store. When null, a local `FilesystemAdapter` is used. |
+| `cache.path` | `null` | Custom filesystem cache location when `cache.store` is null. |
+| `session.enabled` | `true` | Auto-register the `POST /auth/firebase` (login) and `DELETE /auth/firebase` (logout) routes. |
+| `session.prefix` | `auth/firebase` | URL prefix for those routes. |
+| `session.middleware` | `web` | Middleware group(s) for the session routes. |
+| `session.guard` | `web` | Which session guard the controller logs into. |
+
+### Events
+
+The package dispatches three events during token resolution. Wire them up in your `EventServiceProvider`:
 
 ```php
-protected $middlewareGroups = [
-    'web' => [
-        // ... other middleware
-        \Firevel\FirebaseAuthentication\Http\Middleware\AddAccessTokenFromCookie::class,
-    ],
+use Firevel\FirebaseAuthentication\Events\FirebaseUserCreated;
+use Firevel\FirebaseAuthentication\Events\FirebaseUserUpdated;
+use Firevel\FirebaseAuthentication\Events\FirebaseUserResolved;
+
+protected $listen = [
+    FirebaseUserCreated::class => [SendWelcomeEmail::class, ProvisionTenant::class],
+    FirebaseUserUpdated::class => [LogProfileSync::class],
+    FirebaseUserResolved::class => [LogAuthenticatedRequest::class],
 ];
 ```
 
-The middleware reads the raw cookie value directly, so no encryption exclusion configuration is required.
+Each event exposes `$event->user` (the resolved model) and `$event->claims` (the decoded JWT payload).
+
+- `FirebaseUserResolved` fires on every successful authentication, including unchanged users.
+- `FirebaseUserCreated` fires only when a new row is inserted.
+- `FirebaseUserUpdated` fires only when an existing row's attributes drift from the token claims.
+
+### Using a Shared Cache Backend (Redis/Memcached)
+
+By default the package writes Firebase's signing-key cache to the local filesystem. On ephemeral infrastructure (containers, serverless) this gives every fresh instance a cold cache. Point it at a shared Laravel cache store instead:
+
+```php
+// config/firebase-authentication.php
+'cache' => [
+    'store' => 'redis', // any store name from config/cache.php
+],
+```
+
+The store must already be configured in `config/cache.php`. The package wraps it as a PSR-6 pool via Symfony's `Psr16Adapter`.
+
+### Token Verification Leeway
+
+If your server's clock can drift from Google's signing servers, set a small leeway:
+
+```php
+'leeway' => 30, // seconds
+```
+
+Both `FirebaseGuard` (API requests) and `FirebaseSessionController` (web exchange endpoint) honor this setting.
+
+### Disabling Auto-Creation
+
+For invite-only systems where unknown Firebase users must not become DB users:
+
+```php
+'auto_create_users' => false,
+```
+
+When set, `resolveByClaims()` returns `null` for tokens whose subject has no matching row. `FirebaseGuard` treats that as unauthenticated; `FirebaseSessionController` responds with `401 { "error": "No matching user account." }`.
+
+### Testing
+
+The package ships a fake token verifier so your application tests don't need real Firebase JWTs. `Firevel\FirebaseAuthentication\Testing\FirebaseAuth` swaps the contract binding in the container; subsequent requests through `FirebaseGuard` (or `FirebaseSessionController`) authenticate against the configured claims regardless of what bearer token is sent.
+
+```php
+use Firevel\FirebaseAuthentication\Testing\FirebaseAuth;
+
+class ProfileTest extends TestCase
+{
+    public function test_authenticated_request(): void
+    {
+        FirebaseAuth::actingAs([
+            'sub' => 'firebase-uid-1',
+            'email' => 'tester@example.com',
+            'email_verified' => true,
+        ]);
+
+        $this->withHeader('Authorization', 'Bearer anything')
+            ->getJson('/api/profile')
+            ->assertOk();
+    }
+
+    public function test_anonymous_user(): void
+    {
+        FirebaseAuth::actingAsAnonymous();
+
+        $this->withHeader('Authorization', 'Bearer anything')
+            ->getJson('/api/posts')
+            ->assertForbidden();
+    }
+
+    public function test_rejected_token(): void
+    {
+        FirebaseAuth::rejectTokens('Token expired');
+
+        $this->withHeader('Authorization', 'Bearer anything')
+            ->getJson('/api/profile')
+            ->assertUnauthorized();
+    }
+}
+```
+
+Helpers:
+
+- `FirebaseAuth::actingAs(array $claims)` — verify any token to the given claims.
+- `FirebaseAuth::actingAsAnonymous(string $uid = '...')` — shortcut for the anonymous claim shape.
+- `FirebaseAuth::rejectTokens(string $message = '...')` — make verification throw.
+- `FirebaseAuth::fake()` — bind a fake verifier without configuring claims yet.
+- `FirebaseAuth::forget()` — unbind the fake (call from `tearDown` if your tests share the app).
+
+The fake implements `Firevel\FirebaseAuthentication\Contracts\TokenVerifier`, the same interface the real `KreaitTokenVerifier` adapter implements. The full guard + trait + event pipeline runs as in production — only the JWT cryptography is short-circuited.
+
+### Email Verification Sync
+
+Add a nullable `email_verified_at` timestamp column to your users table (Laravel's default `users` table already has one). Then a sign-in carrying `"email_verified": true` populates it automatically:
+
+```php
+$user = $request->user();
+$user->email_verified_at; // Carbon\Carbon
+$user->hasVerifiedEmail();  // true — when your User implements MustVerifyEmail
+```
+
+The column is set only when currently null, so manual `email_verified_at` updates from your app are never overwritten by a later token. To disable entirely, set `email_verification.enabled` to `false`.
+
+`hasVerifiedEmail()` and the rest of Laravel's verification API only kick in if your `User` model implements the `Illuminate\Contracts\Auth\MustVerifyEmail` interface and uses the matching trait — that's standard Laravel, not something this package adds.
 
 ## Usage
 
 ### Basic Authentication
 
-**In Controllers:**
+Standard Laravel — protect routes with `auth:api`, read the user with `auth()->user()` or `$request->user()`:
 
 ```php
-use Illuminate\Http\Request;
-
-class ProfileController extends Controller
-{
-    public function show(Request $request)
-    {
-        $user = $request->user();
-
-        return response()->json([
-            'id' => $user->id,
-            'name' => $user->name,
-            'email' => $user->email,
-        ]);
-    }
-}
-```
-
-**In Routes:**
-
-```php
-Route::middleware('auth:api')->get('/profile', function (Request $request) {
-    return $request->user();
-});
-```
-
-**Manual Authentication Check:**
-
-```php
-if (auth()->check()) {
-    $userId = auth()->id();
-    $user = auth()->user();
-}
+Route::middleware('auth:api')->get('/profile', fn (Request $request) => $request->user());
 ```
 
 ### Anonymous Users
 
-Firebase supports [anonymous authentication](https://firebase.google.com/docs/auth/web/anonymous-auth), allowing users to access your app without signing up.
+Firebase supports [anonymous authentication](https://firebase.google.com/docs/auth/web/anonymous-auth) — users that sign in without credentials.
 
-**Check if User is Anonymous:**
+> ⚠️ **Anonymous sign-in is rejected by default.** Anonymous tokens carry no email or name, can be issued unbounded, and are usually not what an authenticated route expects. Set `firebase-authentication.allow_anonymous` to `true` to accept them.
+
+When enabled, you'll also typically need to:
+1. Make `email` and `name` nullable on your `users` table — anonymous tokens carry neither.
+2. Decide where to gate features per-route using `$user->isAnonymous()`:
 
 ```php
 $user = auth()->user();
 
 if ($user->isAnonymous()) {
-    return response()->json([
-        'message' => 'Limited features available. Sign up for full access!',
-        'features' => ['read-only'],
-    ]);
+    return response()->json(['error' => 'Anonymous users cannot create posts'], 403);
 }
 
-// Regular authenticated user
-return response()->json([
-    'message' => 'Welcome back!',
-    'features' => ['read', 'write', 'share'],
-]);
-```
-
-**Conditional Logic Based on Authentication Type:**
-
-```php
-class PostController extends Controller
-{
-    public function store(Request $request)
-    {
-        $user = $request->user();
-
-        if ($user->isAnonymous()) {
-            return response()->json([
-                'error' => 'Anonymous users cannot create posts',
-            ], 403);
-        }
-
-        // Create post for authenticated user
-        $post = Post::create([
-            'user_id' => $user->id,
-            'title' => $request->title,
-            'content' => $request->content,
-        ]);
-
-        return response()->json($post, 201);
-    }
-}
-```
-
-**Frontend Example:**
-
-```javascript
-// Sign in anonymously
-const userCredential = await firebase.auth().signInAnonymously();
-const token = await userCredential.user.getIdToken();
-
-// Make API request
-const response = await fetch('/api/posts', {
-    headers: {
-        'Authorization': `Bearer ${token}`,
-    },
-});
+// Full-access user — proceed.
 ```
 
 ### Accessing JWT Claims
 
-All JWT token claims are available through the user model:
+The full verified JWT payload is available on the user via `getClaims()` — useful for reading the sign-in provider, identities, or [custom claims](https://firebase.google.com/docs/auth/admin/custom-claims) set via the Firebase Admin SDK:
 
 ```php
-$user = auth()->user();
+$claims = auth()->user()->getClaims();
 
-// Get all claims
-$claims = $user->getClaims();
-
-// Access specific claim data
-$firebase = $claims['firebase'] ?? [];
-$signInProvider = $firebase['sign_in_provider'] ?? null; // 'google.com', 'password', 'anonymous', etc.
-$identities = $firebase['identities'] ?? [];
-
-// Check authentication method
-if ($signInProvider === 'google.com') {
-    // User signed in with Google
-} elseif ($signInProvider === 'password') {
-    // User signed in with email/password
-}
-
-// Access custom claims (set in Firebase Admin SDK)
-$customClaims = $claims['custom_claim_name'] ?? null;
-```
-
-**Example with Custom Claims:**
-
-```php
-// Assuming you set custom claims in Firebase:
-// admin.auth().setCustomUserClaims(uid, { role: 'admin', subscriptionTier: 'premium' })
-
-$user = auth()->user();
-$claims = $user->getClaims();
-
-$role = $claims['role'] ?? 'user';
-$tier = $claims['subscriptionTier'] ?? 'free';
-
-if ($role === 'admin') {
-    // Grant admin access
-}
-
-if ($tier === 'premium') {
-    // Enable premium features
-}
+$provider = $claims['firebase']['sign_in_provider'] ?? null; // 'google.com', 'password', 'anonymous', ...
+$role     = $claims['role'] ?? 'user';                       // custom claim, set via Admin SDK
 ```
 
 ### Working with Firebase Tokens
 
-**Get the Raw JWT Token:**
+On API requests authenticated through the `firebase` driver, the raw bearer token is available on the resolved user:
 
 ```php
 $user = auth()->user();
 $token = $user->getFirebaseAuthenticationToken();
-
-// Use token for Firebase Admin SDK operations
-// or pass to frontend for Firebase Realtime Database/Firestore authentication
+// Forward to other Firebase-verifying services, the Admin SDK, etc.
 ```
 
-**Validate Token Expiration:**
+> **Session-mode caveat:** after `POST /auth/firebase` exchanges a token for a Laravel session, the backend no longer holds the Firebase token. On subsequent session-authenticated requests, `getFirebaseAuthenticationToken()` returns `null`. If you need a fresh token, have the client send it in the `Authorization` header for the specific call.
 
-The package automatically handles token expiration. Expired tokens return `null` for `auth()->user()`.
-
-```php
-$user = auth()->user();
-
-if (!$user) {
-    return response()->json(['error' => 'Unauthorized or token expired'], 401);
-}
-```
+Token expiration is enforced automatically — verification fails on expired tokens and `auth()->user()` returns `null`.
 
 ## API Reference
 
-### FirebaseAuthenticable Trait
+### FirebaseAuthenticatable Trait
 
-Methods available on User models using the `FirebaseAuthenticable` trait:
+Methods available on User models using the `FirebaseAuthenticatable` trait:
+
+> The legacy spelling `FirebaseAuthenticable` (no second `t`) still works in v3 as a deprecated alias — existing models that wrote `use FirebaseAuthenticable;` keep working unchanged. New code should prefer `FirebaseAuthenticatable`, which matches Laravel's `Authenticatable` contract.
 
 #### `resolveByClaims(array $claims): object`
 
@@ -591,21 +753,21 @@ $token = $user->getFirebaseAuthenticationToken();
 Controls which attribute is used to match existing users in your database. This determines how the package looks up users when authenticating.
 
 ```php
-// Default: Match by Firebase UID (sub claim) to id column
-protected $firebaseResolveBy = ['sub' => 'id'];
+// Default: Match by Firebase UID (sub claim) to firebase_id column
+protected $firebaseResolveBy = ['sub' => 'firebase_id'];
 
 // Match by email (when claim name = model attribute)
 protected $firebaseResolveBy = 'email';
 
-// Match by Firebase UID to custom column
+// Match by Firebase UID to a different column
 protected $firebaseResolveBy = ['sub' => 'firebase_uid'];
 ```
 
-**Default behavior:** `['sub' => 'id']` - matches Firebase UID (sub claim) to the `id` column
+**Default behavior:** `['sub' => 'firebase_id']` — matches Firebase UID (sub claim) to the `firebase_id` column. The model's own `id` stays a normal Laravel integer primary key.
 
 **Formats:**
-- **Array format** `['claim_key' => 'model_attribute']` - Use when claim name differs from model attribute (e.g., `['sub' => 'firebase_uid']`)
-- **String format** `'attribute_name'` - Use when claim and model attribute have the same name (e.g., `'email'`)
+- **Array format** `['claim_key' => 'model_attribute']` — Use when claim name differs from model attribute (e.g., `['sub' => 'firebase_uid']`)
+- **String format** `'attribute_name'` — Use when claim and model attribute have the same name (e.g., `'email'`)
 
 #### `$firebaseClaimsMapping` Property
 
@@ -613,17 +775,20 @@ Controls how Firebase JWT claims are mapped to user model attributes. Define thi
 
 ```php
 protected $firebaseClaimsMapping = [
-    'email' => 'email',          // Model attribute => JWT claim key
+    'email' => 'email',                       // Model attribute => JWT claim key
     'name' => 'name',
-    'picture' => 'picture',
-    'phone' => 'phone_number',   // Map phone_number claim to phone attribute
+    'avatar_url' => 'picture',                // Firebase's `picture` claim → `avatar_url` column
+    'phone' => 'phone_number',                // Map phone_number claim to phone attribute
+    'organization_id' => 'organization.id',   // Dot notation reads nested claims
 ];
 ```
 
 **Default mapping:**
 - `email` → `email`
 - `name` → `name`
-- `picture` → `picture`
+- `avatar_url` → `picture` (Firebase's `picture` claim is stored on the `avatar_url` attribute)
+
+**Nested claims (dot notation):** claim keys may use `.` to drill into nested claim objects — e.g. `'organization_id' => 'organization.id'` resolves to `$claims['organization']['id']`. A literal top-level key always wins over the dotted path if both happen to exist on the token.
 
 #### `transformClaims(array $claims): array`
 
@@ -654,69 +819,49 @@ The guard is automatically registered and handles authentication. You typically 
 
 ### Matching Users by Email Instead of Firebase UID
 
-If you have an existing user database and want to match Firebase users by email instead of Firebase UID:
+If you want to match Firebase users by email rather than by Firebase UID (e.g. you already have a user with that email and want to attach Firebase to it):
 
 ```php
 // App/Models/User.php
 class User extends Authenticatable
 {
-    use FirebaseAuthenticable;
+    use FirebaseAuthenticatable;
 
     // Match users by email instead of Firebase UID
     protected $firebaseResolveBy = 'email';
 
-    // Auto-incrementing integer ID
-    public $incrementing = true;
-    protected $keyType = 'int';
-
     protected $fillable = [
         'name',
         'email',
-        'picture',
-    ];
-
-    protected $firebaseClaimsMapping = [
-        'email' => 'email',
-        'name' => 'name',
-        'picture' => 'picture',
+        'avatar_url',
     ];
 }
 ```
 
-**Migration:**
-```php
-Schema::create('users', function (Blueprint $table) {
-    $table->id(); // Auto-incrementing integer ID
-    $table->string('email')->unique();
-    $table->string('name')->nullable();
-    $table->string('picture')->nullable();
-    $table->timestamps();
-});
-```
+The user model still uses Laravel's default integer `id` as the primary key. `email` just becomes the lookup key on each sign-in.
 
-**Use case:** When migrating from a traditional authentication system to Firebase, this allows you to keep your existing user IDs and match by email.
+**Use case:** Migrating from a traditional auth system to Firebase while keeping existing user IDs and matching by email.
 
-### Using Custom Firebase UID Column
+> ⚠️ **Heads-up:** anonymous Firebase users and phone-only sign-ins have no `email` claim. With `firebaseResolveBy = 'email'` they resolve to `null` (unauthenticated). If you need to support those flows alongside email matching, keep `firebaseResolveBy = ['sub' => 'firebase_id']` and write your own lookup-by-email logic where it matters.
 
-If you want to store Firebase UID in a separate column while keeping an auto-incrementing primary key:
+### Using a Different Firebase UID Column Name
+
+The default v3 column is `firebase_id`. If you'd rather call it something else (e.g. `firebase_uid` to match an existing convention), override `$firebaseResolveBy`:
 
 ```php
 // App/Models/User.php
 class User extends Authenticatable
 {
-    use FirebaseAuthenticable;
+    use FirebaseAuthenticatable;
 
-    // Match Firebase UID (sub claim) to firebase_uid column
+    // Match Firebase UID (sub claim) to the firebase_uid column
     protected $firebaseResolveBy = ['sub' => 'firebase_uid'];
-
-    public $incrementing = true;
-    protected $keyType = 'int';
 
     protected $fillable = [
         'firebase_uid',
         'name',
         'email',
-        'picture',
+        'avatar_url',
     ];
 }
 ```
@@ -728,127 +873,33 @@ Schema::create('users', function (Blueprint $table) {
     $table->string('firebase_uid')->unique();
     $table->string('email')->unique()->nullable();
     $table->string('name')->nullable();
-    $table->string('picture')->nullable();
+    $table->string('avatar_url')->nullable();
     $table->timestamps();
-
-    $table->index('firebase_uid'); // Index for faster lookups
 });
 ```
 
-### Role-Based Access Control with Custom Claims
+### Mapping additional claims to columns
+
+For any extra Firebase claim you want stored on the user, add it to `$firebaseClaimsMapping` and `$fillable`:
 
 ```php
-// Middleware: app/Http/Middleware/RequireRole.php
-class RequireRole
-{
-    public function handle(Request $request, Closure $next, string $role)
-    {
-        $user = $request->user();
-
-        if (!$user) {
-            return response()->json(['error' => 'Unauthorized'], 401);
-        }
-
-        $claims = $user->getClaims();
-        $userRole = $claims['role'] ?? 'user';
-
-        if ($userRole !== $role) {
-            return response()->json(['error' => 'Forbidden'], 403);
-        }
-
-        return $next($request);
-    }
-}
-
-// Route usage
-Route::middleware(['auth:api', 'role:admin'])->group(function () {
-    Route::get('/admin/users', [AdminController::class, 'users']);
-});
-```
-
-### Syncing Additional User Data
-
-**Simple Mapping (Recommended):**
-
-Use the `$firebaseClaimsMapping` property for straightforward claim-to-attribute mapping:
-
-```php
-// App/Models/User.php
 class User extends Authenticatable
 {
-    use FirebaseAuthenticable;
+    use FirebaseAuthenticatable;
 
     protected $firebaseClaimsMapping = [
         'email' => 'email',
         'name' => 'name',
-        'picture' => 'picture',
-        'phone' => 'phone_number',    // Map phone_number claim to phone
-        'locale' => 'locale',          // Map locale claim to locale
+        'avatar_url' => 'picture',
+        'phone' => 'phone_number',
+        'locale' => 'locale',
     ];
 
-    protected $fillable = [
-        'name',
-        'email',
-        'picture',
-        'phone',
-        'locale',
-    ];
+    protected $fillable = ['name', 'email', 'avatar_url', 'phone', 'locale'];
 }
 ```
 
-**Advanced Mapping with Transformation Logic:**
-
-Override `transformClaims()` when you need conditional logic or data transformation:
-
-```php
-// App/Models/User.php
-public function transformClaims(array $claims): array
-{
-    // Start with the standard mapping from $firebaseClaimsMapping
-    $attributes = parent::transformClaims($claims);
-
-    // Add conditional transformations
-    if (!empty($claims['email_verified'])) {
-        $attributes['email_verified_at'] = $claims['email_verified']
-            ? now()
-            : null;
-    }
-
-    // Transform data format
-    if (!empty($claims['metadata']['creationTime'])) {
-        $attributes['firebase_created_at'] = Carbon::parse($claims['metadata']['creationTime']);
-    }
-
-    return $attributes;
-}
-```
-
-### Multi-Tenancy with Firebase
-
-```php
-// Set tenant ID as custom claim in Firebase
-// admin.auth().setCustomUserClaims(uid, { tenantId: 'tenant-123' })
-
-class TenantMiddleware
-{
-    public function handle(Request $request, Closure $next)
-    {
-        $user = $request->user();
-        $claims = $user->getClaims();
-
-        $tenantId = $claims['tenantId'] ?? null;
-
-        if (!$tenantId) {
-            return response()->json(['error' => 'No tenant assigned'], 403);
-        }
-
-        // Set tenant for current request
-        app()->instance('current_tenant', $tenantId);
-
-        return $next($request);
-    }
-}
-```
+For conditional logic or data transformation, override `transformClaims()` — see the [API Reference](#transformclaimsarray-claims-array).
 
 ## Security Considerations
 
@@ -867,33 +918,6 @@ class TenantMiddleware
 4. **Use custom claims** for roles/permissions instead of storing in database
 5. **Validate user input** even for authenticated requests
 6. **Rate limit** authentication endpoints to prevent abuse
-
-### CORS Configuration
-
-When using API authentication, configure CORS properly:
-
-```php
-// config/cors.php
-return [
-    'paths' => ['api/*'],
-    'allowed_methods' => ['*'],
-    'allowed_origins' => [env('FRONTEND_URL', 'http://localhost:3000')],
-    'allowed_headers' => ['*'],
-    'exposed_headers' => [],
-    'max_age' => 0,
-    'supports_credentials' => true,
-];
-```
-
-### Environment Variables
-
-Never commit sensitive credentials. Use `.env`:
-
-```env
-GOOGLE_CLOUD_PROJECT=your-project-id
-APP_ENV=production
-APP_DEBUG=false
-```
 
 ## Troubleshooting
 
@@ -927,52 +951,30 @@ APP_DEBUG=false
 2. Check token expiration on frontend and refresh if needed
 3. Ensure server time is synchronized (NTP)
 
-### "Class 'IdTokenVerifier' not found"
-
-**Problem:** Missing dependencies.
-
-**Solution:**
-
-```bash
-composer require kreait/firebase-tokens symfony/cache
-```
-
 ### Users not being created/updated
 
 **Problem:** User model not syncing with Firebase claims.
 
 **Solution:**
-1. Verify `FirebaseAuthenticable` trait is added to User model
-2. Check `$fillable` includes: `['name', 'email', 'picture']`
-3. Ensure `$incrementing = false` is set
-4. Verify database migration has `id` as string column
-
-### "No password support for Firebase Users"
-
-**Problem:** Trying to use password-based authentication methods.
-
-**Expected behavior:** Firebase JWT authentication doesn't use passwords. This is correct.
-
-**Solution:** Use Firebase Authentication on the frontend to obtain JWT tokens.
+1. Verify `FirebaseAuthenticatable` trait is added to User model
+2. Check `$fillable` includes: `['name', 'email', 'firebase_id', 'avatar_url']`
+3. Verify the `firebase_id` column exists on the users table (run the bundled migration or add it manually)
 
 ### Web guard not working
 
 **Problem:** Authentication works for API but not web routes.
 
-**Solution:**
-1. Ensure `AddAccessTokenFromCookie` middleware is added to web middleware group
-2. Check that frontend is setting the cookie correctly
-3. Verify cookie domain matches your application domain
+**If using Option A (Laravel session):**
+1. Verify `config('auth.guards.web.driver')` is `session`, not `firebase`
+2. Confirm `POST /auth/firebase` returns 200 — the client must include the Firebase ID token in `Authorization: Bearer …`
+3. If `firebase-authentication.session.middleware = 'web'`, the request must carry a valid CSRF token; switch to `'api'` for SPAs that handle CSRF separately
+4. Make sure the browser is keeping cookies across requests (`credentials: 'include'` in fetch / `withCredentials` in axios)
 
-### Anonymous users can't be identified
-
-**Problem:** `isAnonymous()` returns false for anonymous users.
-
-**Solution:** Ensure you're using the latest version of the package. The anonymous detection was added recently. Update with:
-
-```bash
-composer update firevel/firebase-authentication
-```
+**If using Option B (cookie-carried bearer):**
+1. Ensure `AddAccessTokenFromCookie` middleware is added to the web middleware group
+2. **Most common cause of silent failure:** make sure the cookie name is listed in `encryptCookies(except: [...])`. Without this, Laravel's `EncryptCookies` middleware nulls the cookie before our middleware reads it.
+3. Check that the frontend is setting the cookie (default name: `bearer_token`)
+4. Verify cookie domain matches your application domain
 
 ## Contributing
 

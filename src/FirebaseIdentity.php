@@ -2,18 +2,33 @@
 
 namespace Firevel\FirebaseAuthentication;
 
+use Firevel\FirebaseAuthentication\Events\FirebaseUserResolved;
 use Illuminate\Foundation\Auth\User as Authenticatable;
 
 class FirebaseIdentity extends Authenticatable
 {
-    use FirebaseAuthenticable;
+    use FirebaseAuthenticatable;
 
     /**
      * Indicates if the IDs are auto-incrementing.
      *
+     * No database is used in microservice mode, so the Firebase UID is the identifier.
+     *
      * @var bool
      */
     public $incrementing = false;
+
+    /**
+     * Resolve the Firebase UID into the `firebase_id` attribute.
+     *
+     * Mirrors the default User model layout so $identity->firebase_id and
+     * $user->firebase_id mean the same thing across services. The stateless
+     * `id` attribute is left unset unless populated from a custom claim via
+     * $firebaseClaimsMapping (e.g. `'id' => 'user_id'`).
+     *
+     * @var array|string
+     */
+    protected $firebaseResolveBy = ['sub' => 'firebase_id'];
 
     /**
      * The attributes that aren't mass assignable.
@@ -33,15 +48,15 @@ class FirebaseIdentity extends Authenticatable
     }
 
     /**
-     * Get User by claim.
+     * Resolve a stateless identity from verified token claims.
      *
-     * @return self
+     * Returns null only when the configured resolve key is missing from
+     * the claims — there is no database lookup that could otherwise fail.
      */
-    public function resolveByClaims(array $claims): object
+    public function resolveByClaims(array $claims): ?object
     {
         $resolveBy = $this->getFirebaseResolveBy();
 
-        // Parse firebaseResolveBy to get claim key and model attribute
         if (is_string($resolveBy)) {
             $claimKey = $resolveBy;
             $modelAttribute = $resolveBy;
@@ -50,9 +65,58 @@ class FirebaseIdentity extends Authenticatable
             $modelAttribute = array_values($resolveBy)[0];
         }
 
-        $attributes = $this->transformClaims($claims);
-        $attributes[$modelAttribute] = (string) $claims[$claimKey];
+        $claimValue = $this->getClaimValue($claims, $claimKey);
 
-        return $this->fill($attributes)->setClaims($claims);
+        if ($claimValue === null || $claimValue === '') {
+            return null;
+        }
+
+        if ($this->isAnonymousClaim($claims) && ! config('firebase-authentication.allow_anonymous', false)) {
+            return null;
+        }
+
+        $attributes = $this->transformClaims($claims);
+        $attributes[$modelAttribute] = (string) $claimValue;
+
+        $identity = $this->fill($attributes);
+        $this->syncEmailVerification($identity, $claims);
+        $identity->setClaims($claims);
+
+        event(new FirebaseUserResolved($identity, $claims));
+
+        return $identity;
+    }
+
+    /**
+     * Stateless identities have no schema. With `$guarded = []` every claim
+     * is fair game, so we always allow setting the verification column.
+     */
+    protected function modelHasAttribute(object $user, string $attribute): bool
+    {
+        return true;
+    }
+
+    /**
+     * Use `firebase_id` as the auth identifier.
+     *
+     * Stateless identities have no database `id`; the Firebase UID is the
+     * stable identifier. Subclasses that populate `id` from a custom claim
+     * (e.g. `'id' => 'user_id'`) can override this to switch back to `id`.
+     *
+     * @return string
+     */
+    public function getAuthIdentifierName()
+    {
+        return 'firebase_id';
+    }
+
+    /**
+     * Get the Firebase UID as the auth identifier.
+     *
+     * @return mixed
+     */
+    public function getAuthIdentifier()
+    {
+        return $this->firebase_id;
     }
 }

@@ -1,0 +1,68 @@
+name: tests
+
+on:
+  push:
+    branches: [master, '3.x']
+  pull_request:
+
+jobs:
+  phpunit:
+    runs-on: ubuntu-latest
+
+    strategy:
+      fail-fast: false
+      matrix:
+        php: ['8.2', '8.3', '8.4']
+        laravel: ['11.*', '12.*', '13.*']
+        dependency-version: [prefer-stable, prefer-lowest]
+        include:
+          - laravel: '11.*'
+            testbench: '9.*'
+          - laravel: '12.*'
+            testbench: '10.*'
+          - laravel: '13.*'
+            testbench: '11.*'
+        exclude:
+          # Laravel 13 requires PHP 8.3+
+          - php: '8.2'
+            laravel: '13.*'
+
+    name: PHP ${{ matrix.php }} · Laravel ${{ matrix.laravel }} · ${{ matrix.dependency-version }}
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup PHP
+        uses: shivammathur/setup-php@v2
+        with:
+          php-version: ${{ matrix.php }}
+          extensions: mbstring, sqlite3, pdo_sqlite, dom, curl, libxml, intl
+          coverage: none
+          tools: composer:v2
+
+      - name: Cache composer dependencies
+        uses: actions/cache@v4
+        with:
+          path: ~/.composer/cache/files
+          key: composer-${{ matrix.php }}-${{ matrix.laravel }}-${{ matrix.dependency-version }}-${{ hashFiles('composer.json') }}
+          restore-keys: composer-${{ matrix.php }}-${{ matrix.laravel }}-${{ matrix.dependency-version }}-
+
+      - name: Pin Laravel and Testbench versions
+        run: |
+          composer require \
+            "illuminate/auth:${{ matrix.laravel }}" \
+            "illuminate/contracts:${{ matrix.laravel }}" \
+            "illuminate/http:${{ matrix.laravel }}" \
+            "illuminate/routing:${{ matrix.laravel }}" \
+            "illuminate/support:${{ matrix.laravel }}" \
+            --no-interaction --no-update
+          composer require --dev \
+            "orchestra/testbench:${{ matrix.testbench }}" \
+            --no-interaction --no-update
+
+      - name: Install dependencies
+        run: composer update --${{ matrix.dependency-version }} --prefer-dist --no-interaction --no-progress
+
+      - name: Run PHPUnit
+        run: vendor/bin/phpunit

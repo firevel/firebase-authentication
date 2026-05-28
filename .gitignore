@@ -1,1 +1,10 @@
 /vendor/
+/.phpunit.cache/
+/coverage/
+composer.lock
+.phpunit.result.cache
+firebase-debug.log
+firebase-debug.*.log
+.DS_Store
+.idea/
+.vscode/
