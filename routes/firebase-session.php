@@ -7,8 +7,10 @@ use Illuminate\Support\Facades\Route;
 // route never collapses to POST / and shadows the application root.
 $prefix = trim(config('firebase-authentication.session.prefix', 'auth/firebase'), '/') ?: 'auth/firebase';
 
+// The session is modelled as a resource: POST creates it (login),
+// DELETE destroys it (logout). Both act on the bare prefix.
 Route::post($prefix, [FirebaseSessionController::class, 'login'])
-    ->name('firebase.session.login');
+    ->name('firebase.session.store');
 
-Route::post($prefix . '/logout', [FirebaseSessionController::class, 'logout'])
-    ->name('firebase.session.logout');
+Route::delete($prefix, [FirebaseSessionController::class, 'logout'])
+    ->name('firebase.session.destroy');

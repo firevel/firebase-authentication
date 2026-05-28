@@ -436,7 +436,7 @@ await fetch('/auth/firebase', {
 });
 ```
 
-After a 200 response, the browser holds a Laravel session cookie and every subsequent web request is authenticated normally. Logout is `POST /auth/firebase/logout`.
+After a 200 response, the browser holds a Laravel session cookie and every subsequent web request is authenticated normally. Logout is `DELETE /auth/firebase` (send the same `X-CSRF-TOKEN` header).
 
 **3. Customize behavior** by publishing the config:
 
@@ -509,7 +509,7 @@ After publishing the config with `php artisan vendor:publish --tag=firebase-auth
 | `email_verification.column` | `email_verified_at` | Which column receives the timestamp. Only set if currently null — never overwrites an existing value. |
 | `cache.store` | `null` | Laravel cache store name (e.g. `'redis'`). When set, the package shares the public-key cache via that store. When null, a local `FilesystemAdapter` is used. |
 | `cache.path` | `null` | Custom filesystem cache location when `cache.store` is null. |
-| `session.enabled` | `true` | Auto-register the `POST /auth/firebase` login/logout routes. |
+| `session.enabled` | `true` | Auto-register the `POST /auth/firebase` (login) and `DELETE /auth/firebase` (logout) routes. |
 | `session.prefix` | `auth/firebase` | URL prefix for those routes. |
 | `session.middleware` | `web` | Middleware group(s) for the session routes. |
 | `session.guard` | `web` | Which session guard the controller logs into. |

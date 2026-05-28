@@ -122,7 +122,7 @@ return [
 
     'session' => [
 
-        // Auto-register POST {prefix} (login) and POST {prefix}/logout routes.
+        // Auto-register POST {prefix} (login) and DELETE {prefix} (logout) routes.
         // Disable if you prefer to wire the controller into your own routes.
         'enabled' => true,
 
