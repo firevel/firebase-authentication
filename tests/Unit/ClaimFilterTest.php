@@ -158,4 +158,69 @@ class ClaimFilterTest extends TestCase
 
         $user->transformClaims(['email' => 'a@example.com']);
     }
+
+    #[Test]
+    public function filter_can_be_a_class_string_and_a_claimfilter_instance()
+    {
+        // Class-string form.
+        $byClass = new class extends User
+        {
+            protected $firebaseClaimsMapping = ['email' => 'email', 'avatar_url' => 'picture'];
+
+            protected $firebaseClaimFilters = ['picture' => UrlClaimFilter::class];
+        };
+
+        $this->assertSame(
+            'https://example.com/a.jpg',
+            $byClass->transformClaims(['email' => 'a@example.com', 'picture' => 'https://example.com/a.jpg'])['avatar_url']
+        );
+        $this->assertArrayNotHasKey(
+            'avatar_url',
+            $byClass->transformClaims(['email' => 'a@example.com', 'picture' => 'data:image/png;base64,AAAA'])
+        );
+
+        // Instance form.
+        $byInstance = new class extends User
+        {
+            protected $firebaseClaimsMapping = ['email' => 'email', 'avatar_url' => 'picture'];
+
+            public function __construct(array $attributes = [])
+            {
+                $this->firebaseClaimFilters = ['picture' => new UrlClaimFilter];
+                parent::__construct($attributes);
+            }
+        };
+
+        $this->assertSame(
+            'https://example.com/b.jpg',
+            $byInstance->transformClaims(['email' => 'a@example.com', 'picture' => 'https://example.com/b.jpg'])['avatar_url']
+        );
+        $this->assertArrayNotHasKey(
+            'avatar_url',
+            $byInstance->transformClaims(['email' => 'a@example.com', 'picture' => 'ftp://example.com/b.jpg'])
+        );
+    }
+
+    #[Test]
+    public function filter_applies_to_dot_notation_claim_keys()
+    {
+        $user = new class extends User
+        {
+            protected $firebaseClaimsMapping = ['email' => 'email', 'org_id' => 'organization.id'];
+
+            protected $firebaseClaimFilters = ['organization.id' => 'integer'];
+        };
+
+        $valid = $user->transformClaims([
+            'email' => 'a@example.com',
+            'organization' => ['id' => '7'],
+        ]);
+        $this->assertSame(7, $valid['org_id']); // integer-coerced from nested claim
+
+        $invalid = $user->transformClaims([
+            'email' => 'a@example.com',
+            'organization' => ['id' => 'not-a-number'],
+        ]);
+        $this->assertArrayNotHasKey('org_id', $invalid);
+    }
 }
