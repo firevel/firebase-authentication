@@ -1,5 +1,16 @@
 # Upgrading
 
+## From v3.0 to v3.1
+
+v3.1 adds [claim filters](README.md#firebaseclaimfilters-property) — a validation layer on incoming JWT claims. The only behavioral change is a new default:
+
+**Firebase's `picture` claim is now filtered as a URL by default.** Previously any scalar `picture` value was written verbatim to `avatar_url`; now non-`http(s)` values — most notably the oversized inline `data:` blob URIs Firebase occasionally emits — are dropped instead. Valid `http(s)` URLs are unaffected, and a dropped value leaves any existing `avatar_url` untouched.
+
+- **No action needed** if you want this (it's the intended fix for blob-URL avatars).
+- **To restore the old behavior**, set an empty filter map on your model: `protected $firebaseClaimFilters = [];`
+
+No config, schema, or migration changes are required.
+
 ## From v2.x to v3.x
 
 Version 3 changes how Firebase identity is stored on the user model. **The default schema now uses a separate `firebase_id` column instead of repurposing `users.id` as a string.** This makes the package drop-in compatible with Laravel's default `users` table and avoids destructive migrations.
