@@ -2,9 +2,16 @@
 
 namespace Firevel\FirebaseAuthentication;
 
+use Firevel\FirebaseAuthentication\Contracts\ClaimFilter;
 use Firevel\FirebaseAuthentication\Events\FirebaseUserCreated;
 use Firevel\FirebaseAuthentication\Events\FirebaseUserResolved;
 use Firevel\FirebaseAuthentication\Events\FirebaseUserUpdated;
+use Firevel\FirebaseAuthentication\Filters\ArrayClaimFilter;
+use Firevel\FirebaseAuthentication\Filters\BooleanClaimFilter;
+use Firevel\FirebaseAuthentication\Filters\CallbackClaimFilter;
+use Firevel\FirebaseAuthentication\Filters\IntegerClaimFilter;
+use Firevel\FirebaseAuthentication\Filters\StringClaimFilter;
+use Firevel\FirebaseAuthentication\Filters\UrlClaimFilter;
 
 trait FirebaseAuthenticatable
 {
@@ -203,22 +210,108 @@ trait FirebaseAuthenticatable
      *
      * Claim keys may use dot notation to read nested values
      * (e.g. `'organization_id' => 'organization.id'`).
+     *
+     * Each claim passes through its configured filter (see
+     * getFirebaseClaimFilters()), keyed by the *claim key* — the filter is a
+     * validation layer on the incoming token data: it enforces the expected
+     * type, coerces when safe, and returns null to reject values that don't
+     * validate, so malformed or unexpected JWT claim data never reaches the
+     * model. Claims with no configured filter keep the legacy behaviour:
+     * scalar values are stored as strings, anything else is skipped.
      */
     public function transformClaims(array $claims): array
     {
         $attributes = [];
+        $filters = $this->getFirebaseClaimFilters();
 
         foreach ($this->getFirebaseClaimsMapping() as $attribute => $claimKey) {
             $value = $this->getClaimValue($claims, $claimKey);
 
-            if ($value === null || $value === '' || ! is_scalar($value)) {
+            if ($value === null) {
                 continue;
             }
 
-            $attributes[$attribute] = (string) $value;
+            if (array_key_exists($claimKey, $filters)) {
+                $value = $this->resolveClaimFilter($filters[$claimKey])->filter($claimKey, $value, $claims);
+            } else {
+                $value = (is_scalar($value) && $value !== '') ? (string) $value : null;
+            }
+
+            if ($value === null || $value === '') {
+                continue;
+            }
+
+            $attributes[$attribute] = $value;
         }
 
         return $attributes;
+    }
+
+    /**
+     * Get the per-claim filter configuration.
+     *
+     * Format: ['claim_key' => filter] — keyed by the token claim, not the
+     * model attribute (dot notation is allowed, e.g. 'organization.id'). A
+     * filter may be a built-in name ('string', 'integer', 'boolean', 'array',
+     * 'url'), a class-string implementing ClaimFilter, a callable (receives
+     * $value, $claim, $claims), or a ClaimFilter instance.
+     *
+     * Override by setting the $firebaseClaimFilters property on the model. The
+     * default filters Firebase's `picture` claim as a URL, dropping the inline
+     * `data:` blob URIs it occasionally emits.
+     */
+    protected function getFirebaseClaimFilters(): array
+    {
+        if (property_exists($this, 'firebaseClaimFilters')) {
+            return $this->firebaseClaimFilters;
+        }
+
+        return ['picture' => 'url'];
+    }
+
+    /**
+     * Built-in claim filter aliases, mapping a short name to its filter class.
+     */
+    protected function firebaseBuiltInFilters(): array
+    {
+        return [
+            'string' => StringClaimFilter::class,
+            'integer' => IntegerClaimFilter::class,
+            'int' => IntegerClaimFilter::class,
+            'boolean' => BooleanClaimFilter::class,
+            'bool' => BooleanClaimFilter::class,
+            'array' => ArrayClaimFilter::class,
+            'url' => UrlClaimFilter::class,
+        ];
+    }
+
+    /**
+     * Resolve a configured filter into a ClaimFilter instance.
+     *
+     * Accepts a ClaimFilter instance, a built-in name or ClaimFilter
+     * class-string, or a callable (wrapped in a CallbackClaimFilter).
+     */
+    protected function resolveClaimFilter(mixed $filter): ClaimFilter
+    {
+        if ($filter instanceof ClaimFilter) {
+            return $filter;
+        }
+
+        if (is_string($filter)) {
+            $class = $this->firebaseBuiltInFilters()[$filter] ?? $filter;
+
+            if (is_subclass_of($class, ClaimFilter::class)) {
+                return new $class;
+            }
+
+            throw new \InvalidArgumentException("Unknown Firebase claim filter [{$filter}].");
+        }
+
+        if (is_callable($filter)) {
+            return new CallbackClaimFilter($filter);
+        }
+
+        throw new \InvalidArgumentException('A Firebase claim filter must be a name, ClaimFilter, class-string, or callable.');
     }
 
     /**

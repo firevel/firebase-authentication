@@ -31,6 +31,7 @@ A production-ready Firebase Authentication driver for Laravel that enables seaml
 - **JWT Token Verification**: Securely verify Firebase Authentication JWT tokens
 - **Automatic User Sync**: Create or update users from Firebase claims, with an opt-out for invite-only flows
 - **Email Verification Sync**: Firebase's `email_verified` claim populates `email_verified_at` automatically
+- **Claim Validation**: Type-enforce and sanitize incoming JWT claims (`string`, `integer`, `boolean`, `array`, `url`) — malformed token data is rejected before it ever reaches your database
 - **Lifecycle Events**: `FirebaseUserCreated`, `FirebaseUserUpdated`, `FirebaseUserResolved` for plug-in hooks
 - **Anonymous Authentication**: Built-in support for Firebase anonymous users
 - **Microservice Ready**: Stateless authentication without database dependency
@@ -792,9 +793,62 @@ protected $firebaseClaimsMapping = [
 
 **Nested claims (dot notation):** claim keys may use `.` to drill into nested claim objects — e.g. `'organization_id' => 'organization.id'` resolves to `$claims['organization']['id']`. A literal top-level key always wins over the dotted path if both happen to exist on the token.
 
+#### `$firebaseClaimFilters` Property
+
+A **validation layer** for incoming JWT claims. Each entry runs a claim's raw value through a filter that enforces the expected type, coerces it when safe, and **rejects (skips) values that don't validate** — so malformed or unexpected token data never reaches your database. Rejected values leave any existing column value untouched (non-destructive).
+
+It's named *filter* rather than *cast* deliberately: unlike Eloquent's `$casts`, a filter can decline to set a value. The reject-or-return semantic mirrors PHP's `filter_var` — which the `integer`/`boolean` filters wrap internally.
+
+```php
+protected $firebaseClaimFilters = [
+    'picture' => 'url',      // keyed by the TOKEN claim, not the model attribute
+    'age'     => 'integer',
+    'admin'   => 'boolean',
+    'roles'   => 'array',
+    // Closure: receives ($value, $claim, $claims); return null to skip.
+    'name'    => fn ($value) => trim($value) ?: null,
+];
+```
+
+> **Keyed by the token claim, not the model attribute.** Filtering validates the *incoming token data* and runs on the raw claim value before it is mapped to an attribute — so the key is the claim name (`picture`), not the destination column (`avatar_url`). Dot-notation claim keys are supported (e.g. `'organization.id' => 'integer'`).
+
+**Default (when the property is unset):** `['picture' => 'url']`. Firebase occasionally sends the `picture` claim as an oversized inline `data:` blob URI rather than a hosted URL; the `'url'` filter keeps only `http`/`https` values and drops the rest, so blobs never get written to `avatar_url`. Claims with no configured filter keep the default behaviour (scalar → string, anything else skipped).
+
+**Built-in filters:**
+
+| Name | Accepts | Rejects (→ skipped) |
+| --- | --- | --- |
+| `'string'` | any scalar, stored as string | arrays/objects, empty string |
+| `'integer'` / `'int'` | int or integer-like string | floats, non-numeric strings, booleans, arrays |
+| `'boolean'` / `'bool'` | `true`/`false`, `1`/`0`, `"true"`/`"false"`, `"yes"`/`"no"`, `"on"`/`"off"` | anything ambiguous |
+| `'array'` | non-empty arrays | scalars, empty arrays |
+| `'url'` | `http`/`https` URLs | `data:` blobs, other schemes, non-URLs |
+
+A filter may also be a **class-string** implementing `Firevel\FirebaseAuthentication\Contracts\ClaimFilter`, a **callable** (`fn ($value, $claim, $claims) => …`), or a **`ClaimFilter` instance**. An unknown filter name throws `InvalidArgumentException`.
+
+**Custom filter class:**
+
+```php
+use Firevel\FirebaseAuthentication\Contracts\ClaimFilter;
+
+class E164PhoneFilter implements ClaimFilter
+{
+    public function filter(string $claim, mixed $value, array $claims): mixed
+    {
+        // Return the value to keep it, or null to reject (skip) it.
+        return preg_match('/^\+[1-9]\d{1,14}$/', (string) $value) === 1 ? $value : null;
+    }
+}
+
+// On the model:
+protected $firebaseClaimFilters = ['phone_number' => E164PhoneFilter::class];
+```
+
+> Filters are configured at the model layer only in this version (no config-file key). Set the property on each model that needs custom validation.
+
 #### `transformClaims(array $claims): array`
 
-Transforms JWT claims into user attributes using the `$firebaseClaimsMapping` property. Override this method for advanced customization beyond simple mapping:
+Transforms JWT claims into user attributes using the `$firebaseClaimsMapping` property, running each claim through its configured [`$firebaseClaimFilters`](#firebaseclaimfilters-property) entry. Override this method for advanced customization beyond simple mapping:
 
 ```php
 public function transformClaims(array $claims): array
@@ -901,7 +955,7 @@ class User extends Authenticatable
 }
 ```
 
-For conditional logic or data transformation, override `transformClaims()` — see the [API Reference](#transformclaimsarray-claims-array).
+To validate or type-coerce those claims (e.g. ensure `phone` is a string or `picture` is a real URL), add a [`$firebaseClaimFilters`](#firebaseclaimfilters-property) entry keyed by the claim name. For conditional logic or data transformation beyond that, override `transformClaims()` — see the [API Reference](#transformclaimsarray-claims-array).
 
 ## Security Considerations
 
