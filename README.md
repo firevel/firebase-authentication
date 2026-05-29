@@ -234,6 +234,8 @@ public function up()
 php artisan migrate
 ```
 
+> ℹ️ **Account linking & the `email` unique index.** Both options above put a **unique** index on `email`. This assumes your Firebase project uses the default **"Link accounts that use the same email"** setting under Authentication → Settings → User account linking — where one email maps to a single Firebase identity (and therefore a single user row). If instead you enable **"Create multiple accounts for each identity provider"**, Firebase can issue several identities (different `sub` values) that share the same email; with the unique index, the second sign-in fails on a duplicate-email error. To support that mode, **remove the `unique` constraint from the `email` column** in your users migration (users are still matched by `firebase_id`, so emails no longer need to be unique).
+
 ### Microservice Setup (without Database)
 
 For microservices that only need to verify authentication without storing user data, use the `FirebaseIdentity` model.
