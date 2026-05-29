@@ -26,7 +26,7 @@ class FirebaseAuthenticationServiceProvider extends ServiceProvider
 
         if ($this->app->runningInConsole()) {
             $this->publishes([
-                __DIR__ . '/../database/migrations/add_firebase_columns_to_users_table.php.stub' => database_path('migrations/' . date('Y_m_d_His') . '_add_firebase_columns_to_users_table.php'),
+                __DIR__ . '/../database/migrations/add_firebase_columns_to_users_table.php.stub' => database_path('migrations/2026_05_29_000000_add_firebase_columns_to_users_table.php'),
             ], 'firebase-authentication-migrations');
 
             $this->publishes([
